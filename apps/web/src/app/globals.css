@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme variables - Light mode */
+:root {
+  /* Background colors */
+  --color-background: 249, 250, 251; /* gray-50 */
+  --color-background-secondary: 255, 255, 255; /* white */
+
+  /* Foreground/text colors */
+  --color-foreground: 17, 24, 39; /* gray-900 */
+  --color-foreground-secondary: 107, 114, 128; /* gray-500 */
+
+  /* Border colors */
+  --color-border: 209, 213, 219; /* gray-300 */
+}
+
+/* Theme variables - Dark mode */
+.dark {
+  /* Background colors */
+  --color-background: 17, 24, 39; /* gray-900 */
+  --color-background-secondary: 31, 41, 55; /* gray-800 */
+
+  /* Foreground/text colors */
+  --color-foreground: 249, 250, 251; /* gray-50 */
+  --color-foreground-secondary: 156, 163, 175; /* gray-400 */
+
+  /* Border colors */
+  --color-border: 75, 85, 99; /* gray-600 */
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
