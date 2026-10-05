@@ -544,6 +544,19 @@ router.patch('/:name/rules', authMiddleware, async (req: AuthRequest, res: Respo
   }
 });
 
+/** GET /api/spaces/:name/pinned: the posts holding the pin slots, newest pin first */
+router.get('/:name/pinned', optionalAuthMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const space = await prisma.space.findUnique({ where: { name: req.params.name.toLowerCase() }, select: { id: true, isPrivate: true, deletedAt: true } });
+    if (!space || !(await canViewSpace(space, req.userId))) { res.status(404).json({ error: 'Space not found' }); return; }
+    const posts = await prisma.post.findMany({ where: { spaceId: space.id, isPinned: true, removed: false }, orderBy: { pinnedAt: 'desc' }, take: 5, select: { id: true, title: true, pinnedAt: true } });
+    res.json({ posts });
+  } catch (error) {
+    console.error('Get pinned posts error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 /**
  * GET /api/spaces/:name/posts
  * Get posts from a specific space
@@ -558,12 +571,16 @@ router.get('/:name/posts', optionalAuthMiddleware, async (req: AuthRequest, res:
 
     // Find the space
     const space = await prisma.space.findUnique({
-      where: { name },
-      select: { id: true },
+      where: { name: name.toLowerCase() },
+      select: { id: true, name: true, displayName: true, isPrivate: true, deletedAt: true },
     });
 
-    if (!space) {
+    if (!space || space.deletedAt) {
       res.status(404).json({ error: 'Space not found' });
+      return;
+    }
+    if (!(await canViewSpace(space, req.userId))) {
+      res.status(403).json({ error: 'Forbidden', code: 'private_space', message: 'This space is private.', space: { name: space.name, displayName: space.displayName, isPrivate: true } });
       return;
     }
 
@@ -582,41 +599,24 @@ router.get('/:name/posts', optionalAuthMiddleware, async (req: AuthRequest, res:
         break;
     }
 
+    // Pinned posts sit above everything on the first page; the rest of the list leaves them out.
     const where = {
       spaceId: space.id,
       removed: false,
+      isPinned: false,
+    };
+    const include = {
+      author: { select: { username: true, avatarUrl: true } },
+      space: { select: { name: true, displayName: true, iconUrl: true, isNsfw: true } },
+      _count: { select: { comments: true } },
     };
 
-    const [posts, totalCount] = await Promise.all([
-      prisma.post.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: {
-          author: {
-            select: {
-              username: true,
-              avatarUrl: true,
-            },
-          },
-          space: {
-            select: {
-              name: true,
-              displayName: true,
-              iconUrl: true,
-              isNsfw: true,
-            },
-          },
-          _count: {
-            select: {
-              comments: true,
-            },
-          },
-        },
-      }),
+    const [rest, totalCount, pinned] = await Promise.all([
+      prisma.post.findMany({ where, orderBy, skip, take: limit, include }),
       prisma.post.count({ where }),
+      page === 1 ? prisma.post.findMany({ where: { spaceId: space.id, removed: false, isPinned: true }, orderBy: { pinnedAt: 'desc' }, take: 5, include }) : Promise.resolve([]),
     ]);
+    const posts = [...pinned, ...rest];
 
     // Get user votes if authenticated
     let userVotes: Record<string, number> = {};
@@ -643,6 +643,7 @@ router.get('/:name/posts', optionalAuthMiddleware, async (req: AuthRequest, res:
       url: post.url,
       postType: post.postType,
       isNsfw: post.isNsfw,
+      isPinned: post.isPinned,
       createdAt: post.createdAt,
       voteScore: post.voteScore,
       commentCount: post._count.comments,

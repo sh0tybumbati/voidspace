@@ -1,0 +1,1 @@
+ALTER TABLE "posts" ADD COLUMN "pinned_at" TIMESTAMP(3);

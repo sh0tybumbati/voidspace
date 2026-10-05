@@ -118,6 +118,7 @@ model Post {
   commentCount  Int       @default(0) @map("comment_count")
   isNsfw        Boolean   @default(false) @map("is_nsfw")
   isPinned      Boolean   @default(false) @map("is_pinned")
+  pinnedAt      DateTime? @map("pinned_at")
   removed       Boolean   @default(false)
   removedBy     String?   @map("removed_by")
   removalReason String?   @map("removal_reason")

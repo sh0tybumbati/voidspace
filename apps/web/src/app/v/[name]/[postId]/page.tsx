@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Bookmark, ExternalLink, Eye, Flag, Gavel, Link2, Pencil, ShieldAlert, ShieldCheck, ShieldX, Trash2 } from 'lucide-react';
+import { Bookmark, ExternalLink, Eye, Flag, Gavel, Link2, Pencil, Pin, PinOff, ShieldAlert, ShieldCheck, ShieldX, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/cn';
@@ -18,6 +18,7 @@ import { EmptyState, ErrorNotice, Skeleton, TimeAgo } from '@/components/ui/Misc
 import { toast } from '@/components/ui/Toast';
 import CommentThread from '@/components/comments/CommentThread';
 import SpaceSidebar from '@/components/layout/SpaceSidebar';
+import { PinModal } from '@/components/moderation/PinModal';
 import { RemoveModal } from '@/components/moderation/RemoveModal';
 import { ReportModal } from '@/components/moderation/ReportModal';
 import { Flair } from '@/components/posts/PostCard';
@@ -39,6 +40,7 @@ export default function PostPage() {
   const [draft, setDraft] = useState({ title: '', content: '' });
   const [removing, setRemoving] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [pinning, setPinning] = useState(false);
   const [reveal, setReveal] = useState(false);
   const [appeal, setAppeal] = useState<AppealInfo | null>(null);
 
@@ -78,6 +80,10 @@ export default function PostPage() {
   const saveEdit = async () => {
     try { await api.updatePost(post.id, { title: draft.title.trim(), content: draft.content }); setEditing(false); await load(); } catch (e) { toast.error((e as Error).message); }
   };
+  const unpin = async () => {
+    try { await api.post('/api/mod/unpin-post', { postId: post!.id }); toast.success('Unpinned.'); void load(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Could not unpin.'); }
+  };
   const restore = async () => {
     try { await api.post('/api/mod/restore-post', { postId: post.id }); toast.success('Post restored.'); await load(); } catch (e) { toast.error((e as Error).message); }
   };
@@ -97,6 +103,7 @@ export default function PostPage() {
                 <span>by <UserLink name={post.author.username} className="hover:text-ink hover:underline" /></span>
                 <TimeAgo date={post.createdAt} />
                 {post.editedAt ? <span>edited</span> : null}
+                {post.isPinned ? <Badge tone="ok"><Pin size={10} /> Pinned</Badge> : null}
                 {post.isNsfw ? <Badge tone="danger">NSFW</Badge> : null}
                 {post.flair ? <Flair flair={post.flair} /> : null}
               </div>
@@ -143,6 +150,9 @@ export default function PostPage() {
                 {mine && !post.removed ? <button onClick={() => { setDraft({ title: post.title, content: post.content ?? '' }); setEditing(true); }} className={bar}><Pencil size={15} /> Edit</button> : null}
                 {mine ? <button onClick={del} className={cn(bar, 'hover:text-danger')}><Trash2 size={15} /> Delete</button> : null}
                 {user && !mine ? <button onClick={() => setReporting(true)} className={cn(bar, 'hover:text-danger')}><Flag size={15} /> Report</button> : null}
+                {meta.isModerator && !post.removed ? (post.isPinned
+                  ? <button onClick={unpin} className={bar}><PinOff size={15} /> Unpin</button>
+                  : <button onClick={() => setPinning(true)} className={bar}><Pin size={15} /> Pin</button>) : null}
                 {meta.isModerator && !mine && !post.removed ? <button onClick={() => setRemoving(true)} className={cn(bar, 'text-warn hover:text-danger')}><ShieldX size={15} /> Remove</button> : null}
                 {meta.isModerator && post.removed ? <button onClick={restore} className={cn(bar, 'text-ok')}><ShieldCheck size={15} /> Restore</button> : null}
               </div>
@@ -156,6 +166,7 @@ export default function PostPage() {
       <aside className="hidden lg:sticky lg:top-20 lg:block lg:self-start">
         <SpaceSidebar space={space} isSubscribed={meta.isSubscribed} isModerator={meta.isModerator} onChanged={(joined) => setMeta((m) => ({ ...m, isSubscribed: joined }))} />
       </aside>
+      {pinning ? <PinModal space={name} postId={post.id} onClose={() => setPinning(false)} onDone={load} /> : null}
       <ReportModal open={reporting} onClose={() => setReporting(false)} targetType="post" targetId={post.id} />
       <RemoveModal open={removing} onClose={() => setRemoving(false)} targetType="post" targetId={post.id} onRemoved={load} />
     </div>

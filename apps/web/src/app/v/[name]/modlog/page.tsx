@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, ErrorNotice, Skeleton, TimeAgo } from '@/components/ui/Misc';
 
-const LABEL: Record<string, string> = { remove_post: 'Removed a post', remove_comment: 'Removed a comment', restore_post: 'Restored a post', restore_comment: 'Restored a comment', ban_user: 'Banned a user', unban_user: 'Lifted a ban' };
+const LABEL: Record<string, string> = { remove_post: 'Removed a post', remove_comment: 'Removed a comment', restore_post: 'Restored a post', restore_comment: 'Restored a comment', ban_user: 'Banned a user', unban_user: 'Lifted a ban', pin_post: 'Pinned a post', unpin_post: 'Unpinned a post' };
 const TONE: Record<string, 'danger' | 'ok' | 'warn'> = { remove_post: 'danger', remove_comment: 'danger', ban_user: 'warn', restore_post: 'ok', restore_comment: 'ok', unban_user: 'ok' };
 
 export default function ModLogPage() {

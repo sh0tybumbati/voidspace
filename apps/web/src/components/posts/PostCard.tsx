@@ -43,7 +43,7 @@ export default function PostCard({ post, showSpace = true }: { post: Post; showS
   };
 
   return (
-    <article className="group flex gap-3 rounded-lg border border-line bg-surface p-3 transition hover:border-line-strong sm:gap-4 sm:p-4">
+    <article className={cn('group flex gap-3 rounded-lg border bg-surface p-3 transition hover:border-line-strong sm:gap-4 sm:p-4', post.isPinned ? 'border-ok/40' : 'border-line')}>
       <VoteButtons kind="post" id={post.id} score={post.voteScore} userVote={post.userVote} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.78rem] text-muted">

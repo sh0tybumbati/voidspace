@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import { hasModPermission } from '../utils/permissions';
 import { handler, notFound } from '../lib/http';
-import { banUser, removeContent, restoreContent, unbanUser } from '../services/moderation';
+import { banUser, pinPost, removeContent, restoreContent, unbanUser, unpinPost } from '../services/moderation';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../db';
 
@@ -50,6 +50,20 @@ router.post('/remove-post', authMiddleware, handler<AuthRequest>(async (req, res
   }).parse(req.body);
   await removeContent(req.userId!, 'post', postId, reason);
   res.json({ message: 'Post removed successfully', postId });
+}));
+
+/** POST /api/mod/pin-post: pin to the top of the space (logged publicly) */
+router.post('/pin-post', authMiddleware, handler<AuthRequest>(async (req, res) => {
+  const body = z.object({ postId: z.string().uuid(), reason: z.string().trim().max(500).optional(), replacePostId: z.string().uuid().optional() }).parse(req.body);
+  const result = await pinPost(req.userId!, body.postId, { reason: body.reason, replacePostId: body.replacePostId });
+  res.json({ message: 'Post pinned', ...result });
+}));
+
+/** POST /api/mod/unpin-post */
+router.post('/unpin-post', authMiddleware, handler<AuthRequest>(async (req, res) => {
+  const body = z.object({ postId: z.string().uuid(), reason: z.string().trim().max(500).optional() }).parse(req.body);
+  await unpinPost(req.userId!, body.postId, body.reason);
+  res.json({ message: 'Post unpinned' });
 }));
 
 /**

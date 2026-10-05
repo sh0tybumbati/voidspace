@@ -11,6 +11,7 @@ export const DEFAULT_MOD_PERMISSIONS = {
   ban_users: true,
   edit_rules: true,
   manage_flairs: true,
+  pin_posts: true,
 };
 
 export const APPEAL_WINDOW_DAYS = 30;
@@ -46,7 +47,7 @@ export async function removeContent(actorId: string, targetType: Target, targetI
   if (t.removed) throw conflict('That has already been removed.');
 
   const data = { removed: true, removedBy: actorId, removalReason: reason };
-  if (targetType === 'post') await prisma.post.update({ where: { id: targetId }, data });
+  if (targetType === 'post') await prisma.post.update({ where: { id: targetId }, data: { ...data, isPinned: false, pinnedAt: null } });   // a removed post gives up its pin
   else await prisma.comment.update({ where: { id: targetId }, data });
 
   const action = await prisma.modAction.create({
@@ -122,3 +123,60 @@ export async function markReversed(modActionId: string, byUserId: string) {
 }
 
 export { HttpError };
+
+// ---------------------------------------------------------------------------------------------
+// Pinned posts: a small, fixed number of slots at the top of a space, set by moderators and logged.
+// ---------------------------------------------------------------------------------------------
+
+export const MAX_PINS = 2;
+
+/** Pinning needs `pin_posts`, or the general content permission `remove_posts` (so existing moderators keep working). */
+async function requirePinner(userId: string, spaceId: string): Promise<void> {
+  const mod = await getModerator(userId, spaceId);
+  if (!mod || !(hasModPermission(mod.permissions, 'pin_posts') || hasModPermission(mod.permissions, 'remove_posts'))) throw forbidden('You must be a moderator of this space to pin posts.');
+}
+
+/**
+ * Pin a post to the top of its space. If every slot is taken, name one to replace with `replacePostId`;
+ * otherwise the caller gets a 409 that says which posts hold the slots.
+ */
+export async function pinPost(actorId: string, postId: string, opts: { reason?: string; replacePostId?: string } = {}) {
+  const post = await prisma.post.findUnique({ where: { id: postId }, include: { space: true } });
+  if (!post) throw notFound('Post not found.');
+  await requirePinner(actorId, post.spaceId);
+  if (post.removed) throw badRequest('A removed post cannot be pinned.');
+  if (post.isPinned) throw conflict('That post is already pinned.');
+
+  const pinned = await prisma.post.findMany({ where: { spaceId: post.spaceId, isPinned: true, removed: false }, orderBy: { pinnedAt: 'asc' }, select: { id: true, title: true } });
+  let replaced: { id: string; title: string } | undefined;
+  if (pinned.length >= MAX_PINS) {
+    if (!opts.replacePostId) throw new HttpError(409, `This space already has ${MAX_PINS} pinned posts (${pinned.map((p) => `"${p.title}"`).join(' and ')}). Unpin one, or choose one to replace.`, 'pins_full');
+    replaced = pinned.find((p) => p.id === opts.replacePostId);
+    if (!replaced) throw badRequest('That post is not one of the pinned posts.');
+  }
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    if (replaced) {
+      await tx.post.update({ where: { id: replaced.id }, data: { isPinned: false, pinnedAt: null } });
+      await tx.modAction.create({ data: { modId: actorId, spaceId: post.spaceId, actionType: 'unpin_post', targetId: replaced.id, targetType: 'post', reason: `Replaced by another pinned post: "${post.title.slice(0, 120)}".` } });
+    }
+    await tx.post.update({ where: { id: post.id }, data: { isPinned: true, pinnedAt: now } });
+    await tx.modAction.create({ data: { modId: actorId, spaceId: post.spaceId, actionType: 'pin_post', targetId: post.id, targetType: 'post', reason: opts.reason?.trim() || 'Pinned to the top of the space.' } });
+  });
+  if (post.authorId !== actorId) {
+    await notify(post.authorId, { type: 'post_pinned', title: `Your post in v/${post.space.name} was pinned`, body: post.title, link: `/v/${post.space.name}/${post.id}` });
+  }
+  return { replacedPostId: replaced?.id ?? null };
+}
+
+export async function unpinPost(actorId: string, postId: string, reason?: string) {
+  const post = await prisma.post.findUnique({ where: { id: postId } });
+  if (!post) throw notFound('Post not found.');
+  await requirePinner(actorId, post.spaceId);
+  if (!post.isPinned) throw conflict('That post is not pinned.');
+  await prisma.$transaction([
+    prisma.post.update({ where: { id: post.id }, data: { isPinned: false, pinnedAt: null } }),
+    prisma.modAction.create({ data: { modId: actorId, spaceId: post.spaceId, actionType: 'unpin_post', targetId: post.id, targetType: 'post', reason: reason?.trim() || 'Unpinned.' } }),
+  ]);
+}

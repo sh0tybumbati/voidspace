@@ -10,7 +10,7 @@ import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../db';
 import { adminRemoveContent, logAdminAction } from '../services/admin';
-import { banUser, markReversed, removeContent, restoreContent } from '../services/moderation';
+import { banUser, markReversed, pinPost, removeContent, restoreContent } from '../services/moderation';
 import { castCommunityBallot, castElectionVote, finalizeCommunityVote, startCommunityVote, startElection } from '../services/governance';
 
 const PASSWORD = 'voidspace-demo';
@@ -175,6 +175,11 @@ async function main() {
   const elected = await prisma.modElection.create({ data: { spaceId: localnews.id, candidateId: user.tamsin.id, electionType: 'add_mod', nominatorId: user.tamsin.id, electionStart: ago(20), electionEnd: ago(13), subscribersAtStart: 9, requiredApproval: 0.6, acceptedAt: ago(24), votesFor: 6, votesAgainst: 1, status: 'passed', closedAt: ago(13), nominationDate: ago(24) } });
   await prisma.moderator.create({ data: { userId: user.tamsin.id, spaceId: localnews.id, addedBy: user.joss.id, permissions: { remove_posts: true, remove_comments: true, ban_users: true, edit_rules: true, manage_flairs: true }, addedAt: ago(13) } });
   void elected;
+
+  // pinned posts
+  await pinPost(user.mara.id, posts.compost.id, { reason: 'Our best reference thread, start here.' });
+  await pinPost(user.mara.id, posts.frost.id, { reason: 'Frost warnings stay up all season.' });
+  await pinPost(user.root.id, posts.welcome.id);
 
   // ---- Admin / transparency
   await adminRemoveContent(user.root.id, 'post', (await prisma.post.create({ data: { spaceId: meta.id, authorId: user.zeph.id, title: 'Free movie downloads here', content: 'Link to pirated films.', postType: 'text', createdAt: ago(5) } })).id, 'Links to pirated films, reported twice. Removed and the account warned.');

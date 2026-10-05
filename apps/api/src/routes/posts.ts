@@ -698,6 +698,8 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
         removed: true,
         removedBy: req.userId,
         removalReason: 'Deleted by author',
+        isPinned: false,
+        pinnedAt: null,
       },
     });
 
