@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../db';
+import { visibleSpaceWhere } from '../lib/visibility';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
       results.posts = await prisma.post.findMany({
         where: {
           removed: false,
+          space: visibleSpaceWhere(req.userId),
           OR: [
             { title: { contains: searchTerm, mode: 'insensitive' } },
             { content: { contains: searchTerm, mode: 'insensitive' } },
@@ -76,6 +78,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
     if (type === 'all' || type === 'spaces') {
       results.spaces = await prisma.space.findMany({
         where: {
+          AND: [visibleSpaceWhere(req.userId)],
           OR: [
             { name: { contains: searchTerm, mode: 'insensitive' } },
             { displayName: { contains: searchTerm, mode: 'insensitive' } },

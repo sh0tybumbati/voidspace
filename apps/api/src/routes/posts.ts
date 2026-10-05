@@ -4,6 +4,7 @@ import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middlewa
 import { updateHotScoreAfterVote } from '../services/hotScore';
 import { updateUserAlignmentOnVote } from '../jobs/alignmentUpdate';
 import { prisma } from '../db';
+import { canViewSpace, canViewSpaceById, visibleSpaceWhere } from '../lib/visibility';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
     const sortBy = (req.query.sort as string) || feedType;
 
     let where: any = { removed: false };
+    where.space = visibleSpaceWhere(req.userId);
 
     // Subscribed feed - only show posts from subscribed spaces
     if (feedType === 'subscribed' && req.userId) {
@@ -129,6 +131,12 @@ router.get('/spaces/:spaceName/posts', optionalAuthMiddleware, async (req: AuthR
       return;
     }
 
+    if (!(await canViewSpace(space, req.userId))) {
+      if (space.deletedAt) { res.status(404).json({ error: 'Space not found' }); return; }
+      res.status(403).json({ error: 'Forbidden', code: 'private_space', message: 'This space is private.' });
+      return;
+    }
+
     let orderBy: any;
     switch (sortBy) {
       case 'new':
@@ -207,6 +215,11 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     });
 
     const validatedData = createPostSchema.parse(req.body);
+
+    if (!(await canViewSpaceById(validatedData.spaceId, req.userId))) {
+      res.status(404).json({ error: 'Space not found' });
+      return;
+    }
 
     // Validate post type and URL
     if (['link', 'image', 'video'].includes(validatedData.postType) && !validatedData.url) {
@@ -308,6 +321,11 @@ router.get('/:id', optionalAuthMiddleware, async (req: AuthRequest, res: Respons
     });
 
     if (!post) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+
+    if (!(await canViewSpaceById(post.spaceId, req.userId))) {
       res.status(404).json({ error: 'Post not found' });
       return;
     }

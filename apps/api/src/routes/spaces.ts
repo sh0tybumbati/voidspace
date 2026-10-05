@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { hasModPermission } from '../utils/permissions';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../db';
+import { canViewSpace, visibleSpaceWhere } from '../lib/visibility';
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
     }
 
     const where: any = {};
+    where.AND = [visibleSpaceWhere(req.userId)];
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -192,6 +194,12 @@ router.get('/:name', optionalAuthMiddleware, async (req: AuthRequest, res: Respo
       return;
     }
 
+    if (!(await canViewSpace(space, req.userId))) {
+      if (space.deletedAt) { res.status(404).json({ error: 'Space not found' }); return; }
+      res.status(403).json({ error: 'Forbidden', code: 'private_space', message: 'This space is private.', space: { name: space.name, displayName: space.displayName, isPrivate: true } });
+      return;
+    }
+
     // Check if current user is subscribed
     let isSubscribed = false;
     if (req.userId) {
@@ -307,6 +315,12 @@ router.post('/:name/subscribe', authMiddleware, async (req: AuthRequest, res: Re
 
     if (!space) {
       res.status(404).json({ error: 'Space not found' });
+      return;
+    }
+
+    if (space.deletedAt) { res.status(404).json({ error: 'Space not found' }); return; }
+    if (space.isPrivate && !(await canViewSpace(space, req.userId))) {
+      res.status(403).json({ error: 'Forbidden', code: 'private_space', message: 'This space is private and not accepting new members.' });
       return;
     }
 
