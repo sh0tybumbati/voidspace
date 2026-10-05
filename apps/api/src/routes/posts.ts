@@ -209,12 +209,28 @@ router.post('/', authMiddleware, verifiedMiddleware, async (req: AuthRequest, re
       title: z.string().min(1).max(300),
       content: z.string().optional(),
       postType: z.enum(['text', 'link', 'image', 'video']),
-      url: z.string().url().optional(),
+      url: z.string().max(500).optional(),
       flairId: z.string().uuid().optional(),
       isNsfw: z.boolean().optional(),
     });
 
     const validatedData = createPostSchema.parse(req.body);
+
+    // What `url` means depends on the post type. Image posts may only use an image the poster uploaded.
+    if (validatedData.postType === 'video') {
+      res.status(400).json({ error: 'Bad Request', message: 'Video posts are not supported yet.' });
+      return;
+    }
+    if (validatedData.postType === 'link') {
+      let ok = false;
+      try { ok = ['http:', 'https:'].includes(new URL(validatedData.url ?? '').protocol); } catch { ok = false; }
+      if (!ok) { res.status(400).json({ error: 'Bad Request', message: 'Link posts need a web address starting with http:// or https://.' }); return; }
+    } else if (validatedData.postType === 'image') {
+      const owned = validatedData.url ? await prisma.upload.findFirst({ where: { url: validatedData.url, userId: req.userId } }) : null;
+      if (!owned) { res.status(400).json({ error: 'Bad Request', message: 'Upload the image first, then post it.' }); return; }
+    } else {
+      validatedData.url = undefined;
+    }
 
     if (!(await canViewSpaceById(validatedData.spaceId, req.userId))) {
       res.status(404).json({ error: 'Space not found' });

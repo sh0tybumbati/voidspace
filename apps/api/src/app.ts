@@ -19,6 +19,8 @@ import adminGovernanceRoutes from './routes/adminGovernance';
 import notificationRoutes from './routes/notifications';
 import streamRoutes from './routes/stream';
 import accountSecurityRoutes from './routes/accountSecurity';
+import uploadRoutes from './routes/uploads';
+import { s3Configured, uploadDir } from './lib/storage';
 import { errorMiddleware } from './lib/http';
 
 // Origins that may call the API from a browser.
@@ -104,6 +106,15 @@ export function createApp(): express.Express {
   app.use('/api/transparency', transparencyRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/stream', streamRoutes);
+  app.use('/api/uploads', uploadRoutes);
+
+  // Uploaded images, when stored on this machine. They are re-encoded WebP, so they are safe to embed from the web app.
+  if (!s3Configured()) {
+    app.use('/uploads', express.static(uploadDir(), {
+      index: false, dotfiles: 'deny', maxAge: '30d', immutable: true,
+      setHeaders: (res) => { res.set('Cross-Origin-Resource-Policy', 'cross-origin'); res.set('Content-Security-Policy', "default-src 'none'"); res.set('X-Content-Type-Options', 'nosniff'); },
+    }));
+  }
 
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not Found', message: 'No such endpoint.' }); });
   app.use(errorMiddleware);
