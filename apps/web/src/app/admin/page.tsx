@@ -159,7 +159,7 @@ function AdminPanel() {
   if (isLoading) return <Skeleton className="h-40 w-full" />;
   if (!user?.isAdmin) return <EmptyState title="Admins only">This page is for site administrators.</EmptyState>;
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <header><h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><ShieldCheck size={22} className="text-accent-text" /> Admin</h1><p className="mt-1 text-sm text-ink-2">Everything you do here is logged in public with the reason you give.</p></header>
       <Tabs<Tab> value={tab} onChange={(t) => router.push(t === 'overview' ? '/admin' : `/admin?tab=${t}`)} tabs={[{ id: 'overview', label: 'Overview' }, { id: 'users', label: 'Users' }, { id: 'reports', label: 'Site reports' }, { id: 'appeals', label: 'Escalated appeals' }, { id: 'publish', label: 'Notices and canary' }]} />
       {tab === 'overview' ? <Overview /> : tab === 'users' ? <Users /> : tab === 'reports' ? <Reports /> : tab === 'appeals' ? <Appeals /> : <Publish />}

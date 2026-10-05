@@ -26,7 +26,7 @@ function Results() {
   const { data, error, loading, reload } = useAsync(() => api.search(q, tab, tab === 'all' ? 8 : 40) as Promise<Found>, [q, tab], { enabled: q.length > 0 });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4">
       <form onSubmit={(e) => { e.preventDefault(); router.push(`/search?q=${encodeURIComponent(text.trim())}`); }} className="relative">
         <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <Input aria-label="Search" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Search posts, spaces and people" className="h-11 pl-10" />

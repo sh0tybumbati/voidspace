@@ -20,7 +20,7 @@ export default function ModLogPage() {
   const { data, error, loading, reload } = useAsync(() => api.get<{ actions: ModLogEntry[]; pagination: Pagination }>(`/api/mod/${name}/log?page=${page}&limit=30`), [name, page]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <header>
         <p className="meta"><Link href={`/v/${name}`} className="hover:text-ink">v/{name}</Link> / mod log</p>
         <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-tight"><Scale size={22} className="text-accent-text" /> Public mod log</h1>

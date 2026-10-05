@@ -106,7 +106,7 @@ export default function SettingsPage() {
   if (!isLoading && !user) return <EmptyState title="Sign in to change your settings" action={<Link href="/login?redirect=/settings" className="link">Sign in</Link>} />;
   if (!user) return null;
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="max-w-2xl space-y-5">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
       <ProfileSection />
       <EmailSection />

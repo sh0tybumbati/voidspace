@@ -53,7 +53,7 @@ export default function TransparencyPage() {
   const { data, error, reload } = useAsync(() => api.get<Summary>('/api/transparency/summary'), []);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <header>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Eye size={22} className="text-accent-text" /> Transparency</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-2">What the people who run this site and its communities have done, in public. Admin actions need a written justification. Legal requests are published with what we did about them.</p>

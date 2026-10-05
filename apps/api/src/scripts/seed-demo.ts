@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../db';
 import { adminRemoveContent, logAdminAction } from '../services/admin';
 import { banUser, markReversed, removeContent, restoreContent } from '../services/moderation';
-import { castCommunityBallot, castElectionVote, startCommunityVote, startElection } from '../services/governance';
+import { castCommunityBallot, castElectionVote, finalizeCommunityVote, startCommunityVote, startElection } from '../services/governance';
 
 const PASSWORD = 'voidspace-demo';
 const DAY = 86_400_000;
@@ -158,6 +158,13 @@ async function main() {
   await prisma.communityVote.update({ where: { id: cv.id }, data: { votingStartsAt: ago(0, 2), endsAt: new Date(Date.now() + 7 * DAY) } });
   for (const [n, v] of [['mara', true], ['pell', true], ['tamsin', false], ['umber', true]] as const) await castCommunityBallot(cv.id, user[n].id, v);
   await startCommunityVote({ spaceName: 'retrogames', proposerId: user.quill.id, voteType: 'enable_ads', title: 'Run one banner ad to pay for a server', proposal: 'A single non-animated banner on the sidebar, nothing in the feed.' });
+
+  // a finished vote, so the result view has something to show
+  const done = await startCommunityVote({ spaceName: 'localnews', proposerId: user.tamsin.id, voteType: 'change_rules', title: 'Require a source link on every news post', proposal: 'Posts about local events must link to where the information came from.', payload: { rules: ['Link to a source.', 'No personal attacks.', 'Every news post needs a source link.'] } });
+  await prisma.communityVote.update({ where: { id: done.id }, data: { votingStartsAt: ago(8), endsAt: new Date(Date.now() + DAY) } });
+  for (const [n, v] of [['joss', true], ['okoro', true], ['pell', true], ['quill', true], ['reeve', true], ['sable', false], ['tilde', true]] as const) await castCommunityBallot(done.id, user[n].id, v);
+  await prisma.communityVote.update({ where: { id: done.id }, data: { endsAt: ago(1) } });
+  await finalizeCommunityVote(done.id);
 
   // ---- Admin / transparency
   await adminRemoveContent(user.root.id, 'post', (await prisma.post.create({ data: { spaceId: meta.id, authorId: user.zeph.id, title: 'Free movie downloads here', content: 'Link to pirated films.', postType: 'text', createdAt: ago(5) } })).id, 'Links to pirated films, reported twice. Removed and the account warned.');

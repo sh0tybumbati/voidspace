@@ -18,11 +18,11 @@ export default function MyAppealsPage() {
   if (!isLoading && !user) return <EmptyState title="Sign in to see your appeals" action={<Link href="/login?redirect=/appeals" className="link">Sign in</Link>} />;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="max-w-3xl space-y-5">
       <header><h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Gavel size={22} className="text-accent-text" /> My appeals</h1><p className="mt-1 text-sm text-ink-2">If a moderator removes your post or bans you, you can appeal within 30 days. A different moderator reviews it.</p></header>
       {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
       {loading && !data ? <Skeleton className="h-32 w-full" /> : null}
-      {data && !data.appeals.length ? <EmptyState title="No appeals">You have not appealed anything. If something of yours is removed, the notification links straight to the appeal form.</EmptyState> : null}
+      {data && !data.appeals.length ? <EmptyState title="Nothing to appeal. Good.">If a moderator ever removes something of yours, the notification will link you straight to the appeal form.</EmptyState> : null}
       <div className="space-y-3">
         {data?.appeals.map((a) => (
           <article key={a.id} className="rounded-lg border border-line bg-surface p-4">

@@ -20,7 +20,7 @@ export default function SpacesPage() {
   const { data, error, loading, reload } = useAsync(() => api.getSpaces({ page, limit: 24, search: search || undefined, sortBy }) as Promise<{ spaces: SpaceSummary[]; pagination: Pagination }>, [search, sortBy, page]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="max-w-5xl space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Compass size={22} className="text-accent-text" /> Explore spaces</h1><p className="mt-1 text-sm text-ink-2">Every space is run by moderators its members can vote in or out.</p></div>
         <ButtonLink href="/spaces/create" variant="primary"><Plus size={15} /> Create a space</ButtonLink>
@@ -31,7 +31,7 @@ export default function SpacesPage() {
       </div>
       {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
       {loading && !data ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-28" />)}</div> : null}
-      {data && !data.spaces.length ? <EmptyState title="No spaces found" action={<ButtonLink href="/spaces/create" variant="primary">Start one</ButtonLink>}>{search ? 'Try a different search.' : 'Nobody has made a space yet.'}</EmptyState> : null}
+      {data && !data.spaces.length ? <EmptyState title="No spaces found" action={<ButtonLink href="/spaces/create" variant="primary">Start one</ButtonLink>}>{search ? 'Nothing matches that. Try fewer words, or start the space yourself.' : 'Nobody has made a space yet. The first founder gets the whole place to themselves.'}</EmptyState> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {data?.spaces.map((s) => (
           <Link key={s.id} href={`/v/${s.name}`} className="flex gap-3 rounded-lg border border-line bg-surface p-4 transition hover:border-line-strong">

@@ -37,7 +37,7 @@ export default function CreateSpacePage() {
   };
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5">
+    <form onSubmit={submit} className="max-w-2xl space-y-5">
       <header><h1 className="text-2xl font-bold tracking-tight">Create a space</h1><p className="mt-1 text-sm text-ink-2">You start as the founder and first moderator. Once the space has members, they can vote in more moderators, and vote on its rules.</p></header>
       <Field label="Address" hint="This is permanent. It appears as v/name." error={nameError}>{(id) => (
         <div className="flex items-center gap-2"><span className="font-mono text-muted">v/</span><Input id={id} value={name} onChange={(e) => setName(e.target.value.toLowerCase())} maxLength={50} placeholder="gardening" /></div>

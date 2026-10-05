@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 /** Long-form reading page: a title, a short lede, then sections. */
 export function StaticPage({ title, lede, draft, children }: { title: string; lede: string; draft?: boolean; children: ReactNode }) {
   return (
-    <article className="mx-auto max-w-2xl space-y-6">
+    <article className="max-w-2xl space-y-6">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="mt-2 text-ink-2">{lede}</p>

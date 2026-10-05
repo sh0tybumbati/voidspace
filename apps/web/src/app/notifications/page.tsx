@@ -34,11 +34,11 @@ export default function NotificationsPage() {
   const markAll = async () => { await api.post('/api/notifications/read', { all: true }); setUnread(0); void reload(); };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="max-w-2xl space-y-5">
       <header className="flex items-center justify-between"><h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Bell size={22} className="text-accent-text" /> Notifications</h1>{unread > 0 ? <Button size="sm" onClick={markAll}><CheckCheck size={14} /> Mark all read</Button> : null}</header>
       {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
       {loading && !data ? <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div> : null}
-      {data && !data.notifications.length ? <EmptyState icon={<Bell size={28} />} title="You are all caught up">Replies, moderation decisions, appeals and votes show up here, live.</EmptyState> : null}
+      {data && !data.notifications.length ? <EmptyState icon={<Bell size={28} />} title="Quiet out here">Replies, moderation decisions, appeals and votes land here the moment they happen.</EmptyState> : null}
       <ul className="space-y-1.5">
         {data?.notifications.map((n) => (
           <li key={n.id}>

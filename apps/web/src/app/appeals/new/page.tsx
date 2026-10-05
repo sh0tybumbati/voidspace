@@ -37,7 +37,7 @@ function NewAppeal() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="max-w-2xl space-y-5">
       <header><h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Gavel size={22} className="text-accent-text" /> Appeal a moderation decision</h1></header>
       <div className="rounded-lg border border-line bg-surface p-4"><p className="meta">What happened</p><p className="mt-1 text-sm"><b>{a.type.replace('_', ' ')}</b> in <Link href={`/v/${a.space}`} className="link">v/{a.space}</Link> <TimeAgo date={a.createdAt} className="text-muted" /></p><p className="mt-2 text-sm text-ink-2">The moderator said: {a.reason}</p></div>
       {data.appeal ? <p className="rounded border border-line bg-surface px-4 py-3 text-sm">You already appealed this ({data.appeal.status}). <Link href="/appeals" className="link">See my appeals</Link></p>

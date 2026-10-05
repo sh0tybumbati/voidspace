@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock, Vote as VoteIcon, XCircle } from 'lucide-react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { api } from '@/lib/api';
@@ -10,6 +10,19 @@ import type { CommunityVoteView, ElectionView, Eligibility } from '@/lib/types';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
+
+/** Counts from 0 to `to` once on mount; jumps straight to the number when motion is reduced. */
+function useCountUp(to: number, ms = 900) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setN(to); return; }
+    let raf = 0; const t0 = performance.now();
+    const tick = (t: number) => { const k = Math.min(1, (t - t0) / ms); setN(Math.round(to * (1 - Math.pow(1 - k, 3)))); if (k < 1) raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, ms]);
+  return n;
+}
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const when = (iso: string) => format(new Date(iso), 'MMM d, h:mm a');
@@ -28,8 +41,8 @@ function Timeline({ phase, first, startsAt, endsAt }: { phase: string; first: st
     <ol className="grid grid-cols-3 gap-2" aria-label="Progress">
       {steps.map((s, i) => (
         <li key={s.id} aria-current={i === current ? 'step' : undefined}>
-          <div className={cn('h-1 rounded-full', i < current ? 'bg-accent/60' : i === current ? 'bg-accent' : 'bg-line')} />
-          <p className={cn('mt-1.5 text-xs font-semibold', i === current ? 'text-ink' : 'text-muted')}>{s.label}</p>
+          <div className="h-1 overflow-hidden rounded-full bg-line"><div style={{ animationDelay: `${i * 120}ms` }} className={cn('h-full origin-left animate-grow rounded-full', i < current ? 'bg-accent/60' : i === current ? 'bg-accent' : 'bg-transparent')} /></div>
+          <p className={cn('mt-1.5 flex items-center gap-1.5 text-xs font-semibold', i === current ? 'text-ink' : 'text-muted')}>{i === current && phase !== 'closed' ? <span className="h-1.5 w-1.5 animate-blink rounded-full bg-accent" aria-hidden /> : null}{s.label}</p>
           {s.sub ? <p className="font-mono text-[0.65rem] text-muted">{s.sub}</p> : null}
         </li>
       ))}
@@ -45,11 +58,18 @@ function Result({ f, a, status, approval, turnout, subscribers }: { f: number; a
   const total = f + a;
   const got = total ? f / total : 0;
   const passed = status === 'passed';
+  const yes = useCountUp(f);
+  const no = useCountUp(a);
+  const [filled, setFilled] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setFilled(true), 120); return () => clearTimeout(t); }, []);
   return (
-    <div className="rounded-md border border-line bg-surface-2 p-3">
-      <div className="flex items-center justify-between text-sm"><span className={cn('flex items-center gap-1.5 font-semibold', passed ? 'text-ok' : 'text-danger')}>{passed ? <CheckCircle2 size={15} /> : <XCircle size={15} />} {passed ? 'Passed' : 'Did not pass'}</span><span className="font-mono text-xs text-muted tabular">{f} yes · {a} no</span></div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-line"><div className={cn('h-full', passed ? 'bg-ok' : 'bg-danger')} style={{ width: `${got * 100}%` }} /></div>
-      <p className="mt-2 text-xs text-muted">{pct(got)} yes (needed {pct(approval)}) · {pct(total / Math.max(1, subscribers))} turnout (needed {pct(turnout)})</p>
+    <div className="animate-reveal rounded-md border border-line bg-surface-2 p-3">
+      <div className="flex items-center justify-between text-sm"><span className={cn('flex items-center gap-1.5 font-semibold', passed ? 'text-ok' : 'text-danger')}>{passed ? <CheckCircle2 size={15} /> : <XCircle size={15} />} {passed ? 'Passed' : 'Did not pass'}</span><span className="font-mono text-xs text-muted tabular">{yes} yes · {no} no</span></div>
+      <div className="relative mt-3 h-2 rounded-full bg-line" role="img" aria-label={`${pct(got)} yes, ${pct(approval)} needed`}>
+        <div className={cn('h-full rounded-full transition-[width] duration-[900ms] ease-out', passed ? 'bg-ok' : 'bg-danger')} style={{ width: filled ? `${got * 100}%` : '0%' }} />
+        <div className="absolute -top-1 h-4 w-0.5 rounded bg-ink" style={{ left: `${approval * 100}%` }} title={`Needed: ${pct(approval)}`} />
+      </div>
+      <p className="mt-2 text-xs text-muted">{pct(got)} yes (needed {pct(approval)}, marked above) · {pct(total / Math.max(1, subscribers))} turnout (needed {pct(turnout)})</p>
     </div>
   );
 }
@@ -66,8 +86,8 @@ function BallotButtons({ endpoint, mine, onDone, eligible }: { endpoint: string;
   return (
     <div>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant={mine === 'for' ? 'primary' : 'secondary'} loading={busy === 'for'} onClick={() => cast('for')}>Yes{mine === 'for' ? ' (your vote)' : ''}</Button>
-        <Button variant={mine === 'against' ? 'danger' : 'secondary'} loading={busy === 'against'} onClick={() => cast('against')}>No{mine === 'against' ? ' (your vote)' : ''}</Button>
+        <Button key={`f${mine}`} className={mine === 'for' ? 'animate-reveal' : ''} variant={mine === 'for' ? 'primary' : 'secondary'} loading={busy === 'for'} onClick={() => cast('for')}>Yes{mine === 'for' ? ' (your vote)' : ''}</Button>
+        <Button key={`a${mine}`} className={mine === 'against' ? 'animate-reveal' : ''} variant={mine === 'against' ? 'danger' : 'secondary'} loading={busy === 'against'} onClick={() => cast('against')}>No{mine === 'against' ? ' (your vote)' : ''}</Button>
       </div>
       <p className="mt-2 text-xs text-muted">Results stay hidden until voting closes so nobody is swayed by the running count.</p>
     </div>

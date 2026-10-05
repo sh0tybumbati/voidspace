@@ -40,7 +40,7 @@ export default function GovernancePage() {
   const myMod = user ? data.moderators.some((m) => m.username === user.username) : false;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="max-w-5xl space-y-8">
       <header>
         <p className="meta"><Link href={`/v/${name}`} className="hover:text-ink">v/{name}</Link> / governance</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">How v/{name} is run</h1>
@@ -79,7 +79,7 @@ export default function GovernancePage() {
         </div>
         {user && el && !el.stand.ok ? <p className="mb-3 rounded border border-line bg-surface px-3 py-2 text-xs text-muted">You cannot stand for moderator yet: {el.stand.reasons.join(' ')}</p> : null}
         {!open.length && !openVotes.length ? <EmptyState icon={<Vote size={26} />} title="Nothing is being decided right now">When a member stands for moderator or proposes a change, it appears here for everyone to see.</EmptyState> : null}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           {open.map((e) => <ElectionCard key={e.id} e={e} space={name} eligibleToVote={el?.vote ?? null} signedIn={Boolean(user)} onChange={reload} />)}
           {openVotes.map((v) => <CommunityVoteCard key={v.id} v={v} space={name} eligibleToVote={el?.vote ?? null} signedIn={Boolean(user)} onChange={reload} />)}
         </div>
@@ -88,7 +88,7 @@ export default function GovernancePage() {
       {closedElections.length || closedVotes.length ? (
         <section aria-labelledby="past">
           <h2 id="past" className="mb-3 text-lg font-semibold">Past decisions</h2>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             {closedElections.map((e) => <ElectionCard key={e.id} e={e} space={name} eligibleToVote={null} signedIn={Boolean(user)} onChange={reload} />)}
             {closedVotes.map((v) => <CommunityVoteCard key={v.id} v={v} space={name} eligibleToVote={null} signedIn={Boolean(user)} onChange={reload} />)}
           </div>

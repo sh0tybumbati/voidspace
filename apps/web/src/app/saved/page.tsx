@@ -27,12 +27,12 @@ export default function SavedPage() {
   const items = tab === 'posts' ? data?.posts : data?.comments;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="max-w-3xl space-y-4">
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Bookmark size={22} className="text-accent-text" /> Saved</h1>
       <Tabs<Tab> value={tab} onChange={(t) => { setTab(t); setPage(1); }} tabs={[{ id: 'posts', label: 'Posts' }, { id: 'comments', label: 'Comments' }]} />
       {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
       {loading && !data ? <Skeleton className="h-32 w-full" /> : null}
-      {data && !items?.length ? <EmptyState icon={<Bookmark size={26} />} title={`No saved ${tab}`}>Use the save button on anything you want to find again.</EmptyState> : null}
+      {data && !items?.length ? <EmptyState icon={<Bookmark size={26} />} title={`No saved ${tab}`}>Hit save on a post or comment and it will wait for you here.</EmptyState> : null}
       {tab === 'posts' ? <div className="space-y-3">{data?.posts?.map((p) => <PostCard key={p.id} post={p} />)}</div> : (
         <div className="space-y-2">{data?.comments?.map((c) => (
           <Link key={c.id} href={c.post ? `/v/${c.post.space?.name ?? 'all'}/${c.post.id}` : '#'} className="block rounded-lg border border-line bg-surface p-4 hover:border-line-strong">

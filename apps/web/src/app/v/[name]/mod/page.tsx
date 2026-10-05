@@ -97,7 +97,7 @@ function ModQueue() {
   if (forbidden) return <EmptyState icon={<Gavel size={28} />} title="Moderators only" action={<Link href={`/v/${name}/governance`} className="link">See how moderators are chosen</Link>}>You can stand for election in the governance page.</EmptyState>;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <header><p className="meta"><Link href={`/v/${name}`} className="hover:text-ink">v/{name}</Link> / mod</p><h1 className="mt-1 text-2xl font-bold tracking-tight">Mod queue</h1></header>
       <Tabs tabs={[{ id: 'reports', label: 'Reports' }, { id: 'appeals', label: 'Appeals' }, { id: 'bans', label: 'Bans' }]} value={tab} onChange={setTab} />
       {tab !== 'bans' ? (
