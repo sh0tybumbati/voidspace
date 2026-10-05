@@ -10,6 +10,7 @@ A community site where members elect their moderators, every moderation decision
 - **Appeals** within 30 days, reviewed by a different moderator, escalating to site admins.
 - **Admins are accountable.** Every admin action needs a written justification, published on the transparency page, along with legal notices and a warrant canary.
 - Reports, a mod queue, image uploads (re-encoded, metadata stripped), live notifications, private spaces, NSFW gating.
+- Self-service data export and account deletion (anonymised, with an option to erase your own content).
 
 The numbers above live in one place, `apps/api/src/services/governance.ts` (`RULES`), and the governance page reads them from the API, so the UI cannot drift from the code.
 

@@ -16,7 +16,7 @@ router.get('/users', adminMiddleware, async (req: AuthRequest, res: Response) =>
     const search = req.query.search as string | undefined;
 
     // Build where clause for search
-    const whereClause: any = {};
+    const whereClause: any = { deletedAt: null };
     if (search) {
       whereClause.OR = [
         { username: { contains: search, mode: 'insensitive' } },

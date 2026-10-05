@@ -33,8 +33,8 @@ router.get('/:username', optionalAuthMiddleware, async (req: AuthRequest, res: R
       },
     });
 
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
+    if (!user || user.username.startsWith('deleted_')) {
+      res.status(404).json({ error: 'User not found', message: user ? 'This account was deleted.' : undefined });
       return;
     }
 

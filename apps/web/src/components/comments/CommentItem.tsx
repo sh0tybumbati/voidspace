@@ -17,6 +17,7 @@ import { toast } from '@/components/ui/Toast';
 import { RemoveModal } from '@/components/moderation/RemoveModal';
 import { ReportModal } from '@/components/moderation/ReportModal';
 import VoteButtons from '@/components/posts/VoteButtons';
+import { UserLink, isDeletedName } from '@/components/ui/UserLink';
 
 export interface CommentNode extends Comment { children: CommentNode[] }
 export interface ThreadContext { postId: string; spaceName: string; postAuthor: string; isModerator: boolean; canComment: boolean; reload: () => void }
@@ -89,13 +90,13 @@ export default function CommentItem({ node, ctx, depth = 0 }: { node: CommentNod
     <div id={anchor} className={cn('relative', highlight && 'rounded bg-accent/10 ring-1 ring-accent/50')}>
       <div className="flex gap-2.5">
         <div className="flex flex-col items-center">
-          <Avatar name={node.author.username} src={node.author.avatarUrl} size={26} className="mt-0.5" />
+          <Avatar name={isDeletedName(node.author.username) ? '?' : node.author.username} src={node.author.avatarUrl} size={26} className="mt-0.5" />
           {!collapsed && node.children.length ? <button onClick={() => setCollapsed(true)} aria-label="Collapse thread" className="group mt-1 w-4 flex-1 cursor-pointer"><span className="mx-auto block h-full w-px bg-line transition group-hover:bg-accent" /></button> : null}
         </div>
         <div className="min-w-0 flex-1 pb-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.78rem]">
             <button onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Expand' : 'Collapse'} className="text-muted hover:text-ink">{collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}</button>
-            <Link href={`/u/${node.author.username}`} className="font-semibold text-ink hover:underline">{node.author.username}</Link>
+            <UserLink name={node.author.username} className="font-semibold text-ink hover:underline" />
             {node.author.username === ctx.postAuthor ? <Badge tone="info">OP</Badge> : null}
             <TimeAgo date={node.createdAt} className="text-muted" />
             {node.editedAt ? <span className="text-muted">edited</span> : null}

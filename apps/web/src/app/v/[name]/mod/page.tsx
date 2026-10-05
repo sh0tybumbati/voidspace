@@ -16,6 +16,7 @@ import { EmptyState, ErrorNotice, Skeleton, TimeAgo } from '@/components/ui/Misc
 import { Tabs } from '@/components/ui/Tabs';
 import { toast } from '@/components/ui/Toast';
 import { AppealReviewModal } from '@/components/moderation/AppealReview';
+import { UserLink } from '@/components/ui/UserLink';
 
 type Tab = 'reports' | 'appeals' | 'bans';
 type Filter = 'pending' | 'resolved';
@@ -42,7 +43,7 @@ function ReportRow({ g, space, onChange }: { g: ReportGroup; space: string; onCh
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted"><Badge tone="warn"><Flag size={10} /> {g.count} {g.count === 1 ? 'report' : 'reports'}</Badge>{g.categories.map((c) => <Badge key={c}>{c.replace('_', ' ')}</Badge>)}<TimeAgo date={g.latestAt} /></div>
       <div className="mt-2.5 rounded border border-line bg-surface-2 p-3">
         {t ? (<>
-          <p className="text-xs text-muted">{g.targetType} by <Link href={`/u/${t.author.username}`} className="hover:underline">{t.author.username}</Link>{t.removed ? ' · already removed' : ''}</p>
+          <p className="text-xs text-muted">{g.targetType} by <UserLink name={t.author.username} className="hover:underline" />{t.removed ? ' · already removed' : ''}</p>
           {t.title ? <p className="mt-1 font-semibold">{link ? <Link href={link} className="hover:text-accent-text">{t.title}</Link> : t.title}</p> : null}
           {t.content ? <p className="mt-1 line-clamp-4 whitespace-pre-line text-sm text-ink-2">{t.content}</p> : null}
         </>) : <p className="text-sm text-muted">The content no longer exists.</p>}

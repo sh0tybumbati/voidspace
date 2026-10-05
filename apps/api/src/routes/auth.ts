@@ -38,6 +38,10 @@ router.post('/register', async (req, res: Response) => {
     const validatedData = registerSchema.parse(req.body);
     const { username, email, password } = validatedData;
 
+    if (username.toLowerCase().startsWith('deleted_')) {
+      res.status(400).json({ error: 'Validation error', message: 'Usernames starting with "deleted_" are reserved.' });
+      return;
+    }
     const weak = checkPasswordStrength(password, { username, email });
     if (weak) {
       res.status(400).json({ error: 'Bad Request', message: weak });

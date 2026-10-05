@@ -45,7 +45,6 @@ next-env.d.ts
 
 # Prisma
 **/prisma/.env
-**/prisma/migrations/**/migration.sql
 
 # IDE
 .vscode

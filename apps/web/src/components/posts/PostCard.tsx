@@ -13,6 +13,7 @@ import { TimeAgo } from '@/components/ui/Misc';
 import { toast } from '@/components/ui/Toast';
 import { ReportModal } from '@/components/moderation/ReportModal';
 import VoteButtons from './VoteButtons';
+import { UserLink, isDeletedName } from '@/components/ui/UserLink';
 
 const stripMarkdown = (s: string) => s.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_`~-]+/g, ' ').replace(/\s+/g, ' ').trim();
 const domainOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
@@ -49,7 +50,7 @@ export default function PostCard({ post, showSpace = true }: { post: Post; showS
           {showSpace ? (
             <Link href={`/v/${post.space.name}`} className="flex items-center gap-1.5 font-semibold text-ink hover:text-accent-text"><Avatar name={post.space.name} src={post.space.iconUrl} size={18} />v/{post.space.name}</Link>
           ) : null}
-          <span>by <Link href={`/u/${post.author.username}`} className="hover:text-ink hover:underline">{post.author.username}</Link></span>
+          <span>by <UserLink name={post.author.username} className="hover:text-ink hover:underline" /></span>
           <TimeAgo date={post.createdAt} />
           {post.isEdited || post.editedAt ? <span>edited</span> : null}
           {post.isPinned ? <Badge tone="ok"><Pin size={10} /> Pinned</Badge> : null}

@@ -36,12 +36,11 @@ On start the API checks these and refuses to run with a bad production setup; wa
 2. Put the API and web behind HTTPS (a tunnel or reverse proxy) and set `TRUST_PROXY=1`.
 3. Make an admin: `./make-admin.sh <username>`. Sign the warrant canary from Admin, then Notices and canary, and renew it before it expires.
 4. Have a lawyer review `/terms` and `/privacy` (they are drafts), and decide who receives legal notices.
-5. Decide how accounts get deleted. There is no self-service deletion or data export yet.
+5. Know what deletion does. Accounts are anonymised, not removed (`deleted_xxxx`), so threads, mod logs and election tallies stay intact; people can also erase their own posts, comments and uploads. Decide how long backups are kept, because deleted data lives on in them until they roll over, and say so in the privacy page.
 6. Back up the database and the upload directory (`pg_dump`, plus a copy of `UPLOAD_DIR`).
 
 ## Known gaps
 
-- Account deletion and data export are not built.
 - S3 storage is implemented but untested.
 - Real-time updates use an in-process event bus, so they work with one API process. For several processes, move it to Redis pub/sub.
 - Notifications are in-app only (no email digests).

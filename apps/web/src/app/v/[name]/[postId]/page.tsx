@@ -22,6 +22,7 @@ import { RemoveModal } from '@/components/moderation/RemoveModal';
 import { ReportModal } from '@/components/moderation/ReportModal';
 import { Flair } from '@/components/posts/PostCard';
 import VoteButtons from '@/components/posts/VoteButtons';
+import { UserLink } from '@/components/ui/UserLink';
 
 interface AppealInfo { action: { id: string; reason: string; createdAt: string; space: string; reversed: boolean }; appeal: { id: string; status: string; reviewerNotes?: string | null } | null; canAppeal: boolean }
 
@@ -93,7 +94,7 @@ export default function PostPage() {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.8rem] text-muted">
                 <Link href={`/v/${name}`} className="flex items-center gap-1.5 font-semibold text-ink hover:text-accent-text"><Avatar name={name} size={20} /> v/{name}</Link>
-                <span>by <Link href={`/u/${post.author.username}`} className="hover:text-ink hover:underline">{post.author.username}</Link></span>
+                <span>by <UserLink name={post.author.username} className="hover:text-ink hover:underline" /></span>
                 <TimeAgo date={post.createdAt} />
                 {post.editedAt ? <span>edited</span> : null}
                 {post.isNsfw ? <Badge tone="danger">NSFW</Badge> : null}

@@ -35,9 +35,9 @@ async function authenticate(req: AuthRequest): Promise<AuthRequest['user'] | Fai
 
   const account = await prisma.user.findUnique({
     where: { id: decoded.userId },
-    select: { id: true, username: true, email: true, isAdmin: true, banned: true, passwordChangedAt: true, emailVerifiedAt: true },
+    select: { id: true, username: true, email: true, isAdmin: true, banned: true, passwordChangedAt: true, emailVerifiedAt: true, deletedAt: true },
   });
-  if (!account) return { status: 401, message: 'That account no longer exists.' };
+  if (!account || account.deletedAt) return { status: 401, message: 'That account no longer exists.' };
   // Token times are whole seconds, so compare in seconds: anything issued before the change's second is out.
   if (account.passwordChangedAt && (decoded.iat ?? 0) < Math.floor(account.passwordChangedAt.getTime() / 1000)) {
     return { status: 401, message: 'Your password was changed. Sign in again.' };

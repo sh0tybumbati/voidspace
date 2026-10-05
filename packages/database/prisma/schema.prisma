@@ -29,6 +29,7 @@ model User {
   banned            Boolean   @default(false)
   emailVerifiedAt   DateTime? @map("email_verified_at")
   passwordChangedAt DateTime? @map("password_changed_at")
+  deletedAt         DateTime? @map("deleted_at")
 
   // Relations
   spaces             Space[]           @relation("SpaceCreator")

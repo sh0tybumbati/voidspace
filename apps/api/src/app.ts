@@ -18,6 +18,7 @@ import transparencyRoutes from './routes/transparency';
 import adminGovernanceRoutes from './routes/adminGovernance';
 import notificationRoutes from './routes/notifications';
 import streamRoutes from './routes/stream';
+import accountRoutes from './routes/account';
 import accountSecurityRoutes from './routes/accountSecurity';
 import uploadRoutes from './routes/uploads';
 import { s3Configured, uploadDir } from './lib/storage';
@@ -74,6 +75,8 @@ export function createApp(): express.Express {
   app.use('/api/auth/register', limiter({ windowMs: 60 * 60_000, limit: 10, message: 'Too many accounts created from this address. Try again later.' }));
   app.use(['/api/auth/forgot-password', '/api/auth/resend-verification'], limiter({ windowMs: 60 * 60_000, limit: 6, message: 'Too many requests. Try again in an hour.' }));
   app.use(['/api/posts', '/api/comments', '/api/reports', '/api/uploads'], (req, res, next) => (req.method === 'POST' ? writeLimit(req, res, next) : next()));
+  app.use('/api/account/delete', limiter({ windowMs: 15 * 60_000, limit: 5, skipSuccessfulRequests: true, message: 'Too many attempts. Try again in a few minutes.' }));
+  app.use('/api/account/export', limiter({ windowMs: 60 * 60_000, limit: 6, message: 'You asked for several exports. Try again in an hour.' }));
   const writeLimit = limiter({ windowMs: 60_000, limit: 40, message: 'You are posting very quickly. Slow down for a moment.' });
 
   app.get('/health', (_req, res) => {
@@ -91,6 +94,7 @@ export function createApp(): express.Express {
   // Mount routes
   app.use('/api/auth', accountSecurityRoutes);
   app.use('/api/auth', authRoutes);
+  app.use('/api/account', accountRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/spaces', spaceRoutes);
   app.use('/api/posts', postRoutes);

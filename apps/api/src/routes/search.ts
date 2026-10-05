@@ -109,6 +109,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
       results.users = await prisma.user.findMany({
         where: {
           username: { contains: searchTerm, mode: 'insensitive' },
+          deletedAt: null,
         },
         take: limit,
         orderBy: {
