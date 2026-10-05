@@ -52,7 +52,7 @@ router.post('/', authMiddleware, handler<AuthRequest>(async (req, res) => {
   if (escalated) {
     await notifyAdmins({ type: 'appeal_escalated', title: `Appeal needs an admin (v/${action.space.name})`, body: 'The space has no other moderator to review it.', link: '/admin?tab=appeals' });
   } else {
-    await notifyModerators(action.spaceId, { type: 'appeal_filed', title: `New appeal in v/${action.space.name}`, link: `/v/${action.space.name}/mod/appeals` }, action.modId);
+    await notifyModerators(action.spaceId, { type: 'appeal_filed', title: `New appeal in v/${action.space.name}`, link: `/v/${action.space.name}/mod?tab=appeals` }, action.modId);
   }
   res.status(201).json({ message: 'Your appeal was sent.', appeal: { id: appeal.id, status: appeal.status } });
 }));

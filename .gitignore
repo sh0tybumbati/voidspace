@@ -65,3 +65,4 @@ next-env.d.ts
 # Local secrets and test config
 .env.test
 apps/*/.env.test
+apps/api/uploads/

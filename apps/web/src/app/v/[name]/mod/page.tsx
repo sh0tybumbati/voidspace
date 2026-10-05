@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { CheckCheck, Flag, Gavel, ShieldX } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -77,10 +77,11 @@ function AppealRow({ a, onChange }: { a: AppealView; onChange: () => void }) {
   );
 }
 
-export default function ModQueuePage() {
+function ModQueue() {
   const { name } = useParams<{ name: string }>();
+  const initial = useSearchParams().get('tab');
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>('reports');
+  const [tab, setTab] = useState<Tab>(initial === 'appeals' || initial === 'bans' ? initial : 'reports');
   const [filter, setFilter] = useState<Filter>('pending');
   const reports = useAsync(() => api.get<{ items: ReportGroup[] }>(`/api/mod/spaces/${name}/reports?status=${filter}`), [name, filter, user?.id], { enabled: tab === 'reports' && Boolean(user) });
   const appeals = useAsync(() => api.get<{ appeals: AppealView[] }>(`/api/mod/spaces/${name}/appeals?status=${filter === 'pending' ? 'pending' : 'resolved'}`), [name, filter, user?.id], { enabled: tab === 'appeals' && Boolean(user) });
@@ -112,4 +113,8 @@ export default function ModQueuePage() {
       ))}</div></> : null}
     </div>
   );
+}
+
+export default function ModQueuePage() {
+  return <Suspense fallback={<Skeleton className="h-40 w-full" />}><ModQueue /></Suspense>;
 }

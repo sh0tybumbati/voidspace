@@ -1,205 +1,73 @@
 # Voidspace
 
-A community-driven discussion platform with democratic governance and transparent moderation.
+A community site where members elect their moderators, every moderation decision is public, and anyone can appeal.
 
-## Features
+## What is different
 
-- **Democratic Governance**: Community votes for adding and removing moderators
-- **Transparent Moderation**: All mod actions logged publicly with required justifications
-- **Appeals System**: Users can appeal mod decisions to different moderators
-- **NSFW Support**: Proper age-gating and blur system for adult content
-- **Community Ads**: Non-intrusive ads only with community opt-in and revenue sharing
-- **Minimal Censorship**: Platform only removes illegal content, communities self-moderate
+- **Elected moderators.** Members nominate, discuss, then vote. 60% approval and 10% turnout to pass; 75% to remove a founder. A space always keeps a moderator.
+- **Community votes** on rules, ads, privacy and deleting the space.
+- **Public mod log** with the moderator's name and reason on every removal and ban.
+- **Appeals** within 30 days, reviewed by a different moderator, escalating to site admins.
+- **Admins are accountable.** Every admin action needs a written justification, published on the transparency page, along with legal notices and a warrant canary.
+- Reports, a mod queue, image uploads (re-encoded, metadata stripped), live notifications, private spaces, NSFW gating.
 
-## Tech Stack
+The numbers above live in one place, `apps/api/src/services/governance.ts` (`RULES`), and the governance page reads them from the API, so the UI cannot drift from the code.
 
-- **Frontend**: Next.js 14 with App Router, Tailwind CSS
-- **Backend**: Node.js + Express
-- **Database**: PostgreSQL + Redis (caching)
-- **Auth**: NextAuth.js with JWT
-- **File Storage**: S3-compatible (Cloudflare R2, AWS S3, or Backblaze B2)
-- **Monorepo**: Turborepo
-
-## Project Structure
+## Layout
 
 ```
-voidspace/
-├── apps/
-│   ├── web/              # Next.js frontend
-│   └── api/              # Express backend
-├── packages/
-│   ├── database/         # Prisma schema & client
-│   ├── ui/               # Shared UI components
-│   ├── types/            # TypeScript types
-│   └── config/           # Shared configs
-├── turbo.json            # Turborepo configuration
-└── package.json          # Root package.json
+apps/api        Express 4 + TypeScript + Prisma 6. createApp() in src/app.ts, jobs in src/jobs
+apps/web        Next.js 14 (app router), Tailwind 3, no UI kit; tokens in src/app/globals.css
+packages/database   Prisma schema and migrations
+docs/deployment.md  Going live: env, email, proxy, storage, backups
 ```
 
-## Getting Started
+## Run it locally
 
-### Prerequisites
-
-- Node.js 18+ and npm 9+
-- PostgreSQL 14+
-- Redis 6+
-
-### Installation
-
-1. **Clone the repository**
-
-```bash
-git clone <repository-url>
-cd voidspace
-```
-
-2. **Install dependencies**
+Needs Node 20+ and PostgreSQL 14+.
 
 ```bash
 npm install
-```
-
-3. **Set up environment variables**
-
-```bash
-# Copy example env files
-cp apps/api/.env.example apps/api/.env
+cp apps/api/.env.example apps/api/.env          # set DATABASE_URL and JWT_SECRET
 cp apps/web/.env.local.example apps/web/.env.local
-cp packages/database/.env.example packages/database/.env
-
-# Edit the .env files with your configuration
+npm run db:deploy -w packages/database          # apply migrations
+npm run db:generate -w packages/database
+npm run dev                                     # API :3001, web :3000
 ```
 
-4. **Set up the database**
+Fill it with a demo community (spaces, threads, an open election and vote, appeals, a legal notice):
 
 ```bash
-# Navigate to database package
-cd packages/database
-
-# Run migrations
-npm run db:migrate
-
-# Generate Prisma client
-npm run db:generate
+npm run seed:demo -w apps/api                   # add -- --reset to start over
 ```
 
-5. **Start development servers**
+Every demo account uses the password `voidspace-demo`: `mara` (founder of v/gardening), `wren` (candidate in the open election), `zeph` (banned, appealing), `root` (admin).
+
+## Tests
 
 ```bash
-# From root directory
-npm run dev
+cp apps/api/.env.test.example apps/api/.env.test   # point it at a throwaway database
+npm test -w apps/api                               # 57 tests over real HTTP
+npx tsc --noEmit -w apps/web && npm run build      # web typecheck and production build
 ```
 
-This will start:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
+The API tests start the app in-process against a separate database and cover moderation, appeals, elections, community votes, transparency, auth hardening, uploads, notifications (including the live stream) and private spaces.
 
-## Development
+## Changing the schema
 
-### Available Scripts
-
-```bash
-npm run dev      # Start all apps in development mode
-npm run build    # Build all apps
-npm run lint     # Lint all apps
-npm run test     # Run tests
-npm run clean    # Clean build artifacts
-```
-
-### Database Commands
+`prisma migrate dev` needs a terminal. In scripts and CI, generate the migration from the diff and apply it with `db:deploy`:
 
 ```bash
 cd packages/database
-
-npm run db:generate  # Generate Prisma client
-npm run db:push      # Push schema changes (dev)
-npm run db:migrate   # Create and run migrations
-npm run db:studio    # Open Prisma Studio
-npm run db:seed      # Seed database
+npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+  --shadow-database-url "$SHADOW_DATABASE_URL" --script > prisma/migrations/<timestamp>_name/migration.sql
+npm run db:deploy
 ```
 
-## Database Schema
+## Going live
 
-The project uses 17 tables organized into three categories:
-
-**Core Tables:**
-- users
-- spaces (communities)
-- posts
-- comments
-- votes
-- subscriptions
-
-**Moderation & Governance:**
-- moderators
-- mod_actions (public log)
-- admin_actions (public log)
-- bans
-- appeals
-- mod_elections
-- election_votes
-- community_votes
-- reports
-
-**Legal & Compliance:**
-- legal_notices
-- transparency_canary
-
-## Implementation Roadmap
-
-### Phase 1: Core Features (Week 1-2)
-- [x] Project setup
-- [ ] Authentication & user system
-- [ ] Spaces & posts
-- [ ] Comments & voting
-
-### Phase 2: Moderation (Week 3)
-- [ ] Moderator permissions
-- [ ] Public mod log
-- [ ] Content removal & bans
-- [ ] Appeals system
-- [ ] Report system
-
-### Phase 3: Governance (Week 4)
-- [ ] Mod elections
-- [ ] Community votes
-- [ ] Admin system
-
-### Phase 4: Media & NSFW (Week 5)
-- [ ] NSFW age-gating
-- [ ] Image/video upload
-- [ ] Rich text editor
-
-### Phase 5: Ads & Monetization (Week 6)
-- [ ] Ad system
-- [ ] Revenue sharing
-- [ ] Community ad votes
-
-### Phase 6: Polish (Week 7)
-- [ ] Search functionality
-- [ ] Redis caching
-- [ ] Rate limiting
-- [ ] Performance optimization
-- [ ] Mobile responsiveness
-
-### Phase 7: Testing & Launch (Week 8)
-- [ ] Unit & integration tests
-- [ ] E2E tests
-- [ ] Legal documents
-- [ ] Admin tools
-- [ ] Deployment setup
-- [ ] Monitoring & analytics
-
-## Contributing
-
-This project is currently in active development. Contribution guidelines will be added soon.
+Read [docs/deployment.md](docs/deployment.md). The Terms and Privacy pages are plain-language drafts and need legal review before the site is public.
 
 ## License
 
 TBD
-
-## Version
-
-Current version: 0.1.0
-
-**Note:** Remember to update the version number when pushing to git. The version number appears on the index page.

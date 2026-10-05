@@ -57,7 +57,7 @@ router.post('/', authMiddleware, verifiedMiddleware, handler<AuthRequest>(async 
 
   const siteLevel = body.targetType === 'user' || body.category === 'illegal';
   if (spaceId && firstForTarget) {
-    await notifyModerators(spaceId, { type: 'report_filed', title: `New report in v/${spaceName}`, body: `A ${body.targetType} was reported for ${body.category.replace('_', ' ')}.`, link: `/v/${spaceName}/mod/reports` }, authorId);
+    await notifyModerators(spaceId, { type: 'report_filed', title: `New report in v/${spaceName}`, body: `A ${body.targetType} was reported for ${body.category.replace('_', ' ')}.`, link: `/v/${spaceName}/mod?tab=reports` }, authorId);
   }
   if (siteLevel) {
     await notifyAdmins({ type: 'report_filed', title: body.category === 'illegal' ? 'Content reported as illegal' : 'A user was reported', link: '/admin/reports' });
