@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
 import { updateUserAlignmentOnVote } from '../jobs/alignmentUpdate';
 import { prisma } from '../db';
+import { publish } from '../lib/bus';
+import { notify } from '../services/notify';
 
 const router = Router();
 
@@ -52,6 +54,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    let parentAuthorId: string | undefined;
     // If replying to a comment, check it exists and calculate depth
     let depthLevel = 0;
     if (validatedData.parentCommentId) {
@@ -71,6 +74,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
       // Calculate depth level (parent depth + 1)
       depthLevel = parentComment.depthLevel + 1;
+      parentAuthorId = parentComment.authorId;
     }
 
     // Create comment
@@ -99,6 +103,19 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       where: { id: validatedData.postId },
       data: { commentCount: { increment: 1 } },
     });
+
+    // Tell the person being replied to, and anyone watching the thread live.
+    const space = await prisma.space.findUnique({ where: { id: post.spaceId }, select: { name: true } });
+    const recipient = parentAuthorId ?? post.authorId;
+    if (recipient !== req.userId) {
+      await notify(recipient, {
+        type: parentAuthorId ? 'comment_reply' : 'post_reply',
+        title: `${comment.author.username} ${parentAuthorId ? 'replied to your comment' : 'commented on your post'}`,
+        body: comment.content.slice(0, 140),
+        link: `/v/${space?.name}/${post.id}#comment-${comment.id}`,
+      });
+    }
+    publish(`post:${post.id}`, 'comment', { id: comment.id, parentCommentId: comment.parentCommentId, author: comment.author.username, createdAt: comment.createdAt });
 
     res.status(201).json({
       message: 'Comment created successfully',

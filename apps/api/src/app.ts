@@ -15,6 +15,8 @@ import modQueueRoutes from './routes/modqueue';
 import governanceRoutes from './routes/governance';
 import transparencyRoutes from './routes/transparency';
 import adminGovernanceRoutes from './routes/adminGovernance';
+import notificationRoutes from './routes/notifications';
+import streamRoutes from './routes/stream';
 import { errorMiddleware } from './lib/http';
 
 // Origins that may call the API from a browser.
@@ -75,6 +77,8 @@ export function createApp(): express.Express {
   app.use('/api/admin', adminGovernanceRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/transparency', transparencyRoutes);
+  app.use('/api/notifications', notificationRoutes);
+  app.use('/api/stream', streamRoutes);
 
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not Found', message: 'No such endpoint.' }); });
   app.use(errorMiddleware);
