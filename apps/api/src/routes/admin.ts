@@ -194,48 +194,6 @@ router.get('/users/:userId', adminMiddleware, async (req: AuthRequest, res: Resp
 });
 
 /**
- * PATCH /api/admin/users/:userId
- * Update user (admin only)
- */
-router.patch('/users/:userId', adminMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const { isAdmin, banned } = req.body;
-
-    // Validate that at least one field is provided
-    if (isAdmin === undefined && banned === undefined) {
-      res.status(400).json({ error: 'No fields to update' });
-      return;
-    }
-
-    // Build update data
-    const updateData: any = {};
-    if (isAdmin !== undefined) updateData.isAdmin = isAdmin;
-    if (banned !== undefined) updateData.banned = banned;
-
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        isAdmin: true,
-        banned: true,
-      },
-    });
-
-    res.json({
-      message: 'User updated successfully',
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.error('Admin update user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-/**
  * GET /api/admin/stats
  * Get platform statistics (admin only)
  */

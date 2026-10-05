@@ -15,19 +15,20 @@ datasource db {
 // ============================================================================
 
 model User {
-  id              String    @id @default(uuid())
-  username        String    @unique @db.VarChar(50)
-  email           String    @unique @db.VarChar(255)
-  passwordHash    String    @map("password_hash") @db.VarChar(255)
-  createdAt       DateTime  @default(now()) @map("created_at")
-  alignment       Int       @default(0)
-  avatarUrl       String?   @map("avatar_url")
-  bio             String?
-  preferences     Json?
-  isAdmin         Boolean   @default(false) @map("is_admin")
-  isOver18        Boolean   @default(false) @map("is_over_18")
-  banned          Boolean   @default(false)
-  emailVerifiedAt DateTime? @map("email_verified_at")
+  id                String    @id @default(uuid())
+  username          String    @unique @db.VarChar(50)
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  alignment         Int       @default(0)
+  avatarUrl         String?   @map("avatar_url")
+  bio               String?
+  preferences       Json?
+  isAdmin           Boolean   @default(false) @map("is_admin")
+  isOver18          Boolean   @default(false) @map("is_over_18")
+  banned            Boolean   @default(false)
+  emailVerifiedAt   DateTime? @map("email_verified_at")
+  passwordChangedAt DateTime? @map("password_changed_at")
 
   // Relations
   spaces             Space[]           @relation("SpaceCreator")
