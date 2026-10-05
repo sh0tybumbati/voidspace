@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { HttpError, badRequest, conflict, handler, notFound } from '../lib/http';
 import { notifyAdmins, notifyModerators } from '../services/notify';
 
@@ -22,7 +22,7 @@ const createSchema = z.object({
  * Report a post, comment or user. Posts and comments go to the space's moderators; users, and anything
  * reported as illegal, also go to the site admins.
  */
-router.post('/', authMiddleware, handler<AuthRequest>(async (req, res) => {
+router.post('/', authMiddleware, verifiedMiddleware, handler<AuthRequest>(async (req, res) => {
   const body = createSchema.parse(req.body);
   const reporterId = req.userId!;
 

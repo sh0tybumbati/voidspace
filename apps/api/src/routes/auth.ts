@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { prisma } from '../db';
+import { checkPasswordStrength } from '../lib/passwords';
+import { sendVerificationEmail } from './accountSecurity';
 
 const router = Router();
 
@@ -35,6 +37,12 @@ router.post('/register', async (req, res: Response) => {
     // Validate input
     const validatedData = registerSchema.parse(req.body);
     const { username, email, password } = validatedData;
+
+    const weak = checkPasswordStrength(password, { username, email });
+    if (weak) {
+      res.status(400).json({ error: 'Bad Request', message: weak });
+      return;
+    }
 
     // Check if username already exists
     const existingUsername = await prisma.user.findUnique({
@@ -79,6 +87,12 @@ router.post('/register', async (req, res: Response) => {
         alignment: true,
       },
     });
+
+    try {
+      await sendVerificationEmail({ id: user.id, email: user.email, username: user.username });
+    } catch (mailError) {
+      console.error('Could not send the verification email:', mailError);
+    }
 
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET;
@@ -302,10 +316,13 @@ router.patch('/password', authMiddleware, async (req: AuthRequest, res: Response
     // Update password
     await prisma.user.update({
       where: { id: req.userId },
-      data: { passwordHash: newPasswordHash },
+      data: { passwordHash: newPasswordHash, passwordChangedAt: new Date() },
     });
 
-    res.json({ message: 'Password updated successfully' });
+    // Older sessions are signed out by the timestamp above; hand back a fresh token for this one.
+    const jwtSecret = process.env.JWT_SECRET!;
+    const token = jwt.sign({ userId: req.userId, username: req.user?.username }, jwtSecret, { expiresIn: (process.env.JWT_EXPIRY || '7d') as jwt.SignOptions['expiresIn'] });
+    res.json({ message: 'Password updated successfully', token });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Validation error', details: error.errors });

@@ -8,6 +8,7 @@ config({ path: join(__dirname, '..', '.env.test') });
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ??= 'test-secret-not-for-production';
 process.env.FRONTEND_URL ??= 'http://localhost:3200';
+process.env.RATE_LIMIT_DISABLED ??= '1';   // tests that check limits switch it back on
 
 const dbUrl = process.env.DATABASE_URL ?? '';
 if (!/\/[^/?]*_test(\?|$)/.test(dbUrl)) {

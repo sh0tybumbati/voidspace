@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { updateUserAlignmentOnVote } from '../jobs/alignmentUpdate';
 import { prisma } from '../db';
 import { publish } from '../lib/bus';
@@ -12,7 +12,7 @@ const router = Router();
  * POST /api/comments
  * Create a new comment
  */
-router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/', authMiddleware, verifiedMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -393,7 +393,7 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
  * POST /api/comments/:id/vote
  * Vote on a comment
  */
-router.post('/:id/vote', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/:id/vote', authMiddleware, verifiedMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Unauthorized' });

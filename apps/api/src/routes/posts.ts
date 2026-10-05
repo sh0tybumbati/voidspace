@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { updateHotScoreAfterVote } from '../services/hotScore';
 import { updateUserAlignmentOnVote } from '../jobs/alignmentUpdate';
 import { prisma } from '../db';
@@ -197,7 +197,7 @@ router.get('/spaces/:spaceName/posts', optionalAuthMiddleware, async (req: AuthR
  * POST /api/posts
  * Create a new post
  */
-router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/', authMiddleware, verifiedMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -471,7 +471,7 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
  * POST /api/posts/:id/vote
  * Vote on a post
  */
-router.post('/:id/vote', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/:id/vote', authMiddleware, verifiedMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Unauthorized' });

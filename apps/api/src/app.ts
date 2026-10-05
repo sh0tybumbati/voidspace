@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import spaceRoutes from './routes/spaces';
@@ -17,6 +18,7 @@ import transparencyRoutes from './routes/transparency';
 import adminGovernanceRoutes from './routes/adminGovernance';
 import notificationRoutes from './routes/notifications';
 import streamRoutes from './routes/stream';
+import accountSecurityRoutes from './routes/accountSecurity';
 import { errorMiddleware } from './lib/http';
 
 // Origins that may call the API from a browser.
@@ -40,8 +42,22 @@ function originAllowed(origin: string | undefined): boolean {
 }
 
 
+/** A limiter that tests can switch off with RATE_LIMIT_DISABLED=1 (checked per request). */
+const limiter = (opts: { windowMs: number; limit: number; skipSuccessfulRequests?: boolean; message: string }) =>
+  rateLimit({
+    windowMs: opts.windowMs,
+    limit: opts.limit,
+    skipSuccessfulRequests: opts.skipSuccessfulRequests,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: () => process.env.RATE_LIMIT_DISABLED === '1',
+    handler: (_req, res) => { res.status(429).json({ error: 'Too Many Requests', message: opts.message }); },
+  });
+
 export function createApp(): express.Express {
   const app = express();
+  // Behind a tunnel or reverse proxy, TRUST_PROXY (usually 1) lets rate limits see the visitor, not the proxy.
+  if (process.env.TRUST_PROXY) app.set('trust proxy', /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY === 'true');
   app.use(helmet());
   app.use(cors({
     origin: (origin, callback) => callback(null, originAllowed(origin)),
@@ -49,6 +65,14 @@ export function createApp(): express.Express {
   }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Limits, per visitor address. Generous for normal use, tight where abuse is likely.
+  app.use('/api', limiter({ windowMs: 60_000, limit: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 300, message: 'You are making requests very quickly. Slow down for a moment.' }));
+  app.use('/api/auth/login', limiter({ windowMs: 15 * 60_000, limit: 10, skipSuccessfulRequests: true, message: 'Too many sign-in attempts. Try again in a few minutes.' }));
+  app.use('/api/auth/register', limiter({ windowMs: 60 * 60_000, limit: 10, message: 'Too many accounts created from this address. Try again later.' }));
+  app.use(['/api/auth/forgot-password', '/api/auth/resend-verification'], limiter({ windowMs: 60 * 60_000, limit: 6, message: 'Too many requests. Try again in an hour.' }));
+  app.use(['/api/posts', '/api/comments', '/api/reports', '/api/uploads'], (req, res, next) => (req.method === 'POST' ? writeLimit(req, res, next) : next()));
+  const writeLimit = limiter({ windowMs: 60_000, limit: 40, message: 'You are posting very quickly. Slow down for a moment.' });
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -63,6 +87,7 @@ export function createApp(): express.Express {
   });
 
   // Mount routes
+  app.use('/api/auth', accountSecurityRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/spaces', spaceRoutes);

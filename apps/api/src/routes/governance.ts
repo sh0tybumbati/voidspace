@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { handler, notFound } from '../lib/http';
 import {
   COMMUNITY_VOTE_TYPES, RULES, candidateEligibility, castCommunityBallot, castElectionVote, closeDueGovernance, communityPhase,
@@ -88,7 +88,7 @@ const electionSchema = z.object({
 });
 
 /** POST /api/spaces/:name/elections: stand for moderator, nominate someone, or propose removing a moderator */
-router.post('/spaces/:name/elections', authMiddleware, handler<AuthRequest>(async (req, res) => {
+router.post('/spaces/:name/elections', authMiddleware, verifiedMiddleware, handler<AuthRequest>(async (req, res) => {
   const body = electionSchema.parse(req.body);
   const election = await startElection({ spaceName: req.params.name, type: body.type, requesterId: req.userId!, candidateUsername: body.candidate, justification: body.justification });
   res.status(201).json({ message: 'Election started', election: { id: election.id, votingStartsAt: election.electionStart, votingEndsAt: election.electionEnd } });
@@ -104,7 +104,7 @@ router.post('/elections/:id/decline', authMiddleware, handler<AuthRequest>(async
   res.json({ message: 'Nomination declined' });
 }));
 
-router.post('/elections/:id/vote', authMiddleware, handler<AuthRequest>(async (req, res) => {
+router.post('/elections/:id/vote', authMiddleware, verifiedMiddleware, handler<AuthRequest>(async (req, res) => {
   const { vote } = ballotSchema.parse(req.body);
   await castElectionVote(req.params.id, req.userId!, vote);
   res.json({ message: 'Your vote was recorded', vote: vote ? 'for' : 'against' });
@@ -118,13 +118,13 @@ const communitySchema = z.object({
 });
 
 /** POST /api/spaces/:name/votes: propose a community-wide decision (ads, rules, privacy, deleting the space) */
-router.post('/spaces/:name/votes', authMiddleware, handler<AuthRequest>(async (req, res) => {
+router.post('/spaces/:name/votes', authMiddleware, verifiedMiddleware, handler<AuthRequest>(async (req, res) => {
   const body = communitySchema.parse(req.body);
   const vote = await startCommunityVote({ spaceName: req.params.name, proposerId: req.userId!, ...body });
   res.status(201).json({ message: 'Vote started', vote: { id: vote.id, votingStartsAt: vote.votingStartsAt, votingEndsAt: vote.endsAt } });
 }));
 
-router.post('/votes/:id/ballot', authMiddleware, handler<AuthRequest>(async (req, res) => {
+router.post('/votes/:id/ballot', authMiddleware, verifiedMiddleware, handler<AuthRequest>(async (req, res) => {
   const { vote } = ballotSchema.parse(req.body);
   await castCommunityBallot(req.params.id, req.userId!, vote);
   res.json({ message: 'Your vote was recorded', vote: vote ? 'for' : 'against' });

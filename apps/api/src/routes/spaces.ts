@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { hasModPermission } from '../utils/permissions';
-import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, optionalAuthMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { prisma } from '../db';
 import { canViewSpace, visibleSpaceWhere } from '../lib/visibility';
 
@@ -82,7 +82,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
  * POST /api/spaces
  * Create a new space
  */
-router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/', authMiddleware, verifiedMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) {
       res.status(401).json({ error: 'Unauthorized' });

@@ -38,7 +38,8 @@ async function authenticate(req: AuthRequest): Promise<AuthRequest['user'] | Fai
     select: { id: true, username: true, email: true, isAdmin: true, banned: true, passwordChangedAt: true, emailVerifiedAt: true },
   });
   if (!account) return { status: 401, message: 'That account no longer exists.' };
-  if (account.passwordChangedAt && (decoded.iat ?? 0) * 1000 < account.passwordChangedAt.getTime() - 1000) {
+  // Token times are whole seconds, so compare in seconds: anything issued before the change's second is out.
+  if (account.passwordChangedAt && (decoded.iat ?? 0) < Math.floor(account.passwordChangedAt.getTime() / 1000)) {
     return { status: 401, message: 'Your password was changed. Sign in again.' };
   }
   if (account.banned) return { status: 403, message: 'This account is banned.' };
