@@ -15,42 +15,49 @@ datasource db {
 // ============================================================================
 
 model User {
-  id            String   @id @default(uuid())
-  username      String   @unique @db.VarChar(50)
-  email         String   @unique @db.VarChar(255)
-  passwordHash  String   @map("password_hash") @db.VarChar(255)
-  createdAt     DateTime @default(now()) @map("created_at")
-  alignment     Int      @default(0)
-  avatarUrl     String?  @map("avatar_url")
-  bio           String?
-  preferences   Json?
-  isAdmin       Boolean  @default(false) @map("is_admin")
-  isOver18      Boolean  @default(false) @map("is_over_18")
-  banned        Boolean  @default(false)
+  id              String    @id @default(uuid())
+  username        String    @unique @db.VarChar(50)
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  alignment       Int       @default(0)
+  avatarUrl       String?   @map("avatar_url")
+  bio             String?
+  preferences     Json?
+  isAdmin         Boolean   @default(false) @map("is_admin")
+  isOver18        Boolean   @default(false) @map("is_over_18")
+  banned          Boolean   @default(false)
+  emailVerifiedAt DateTime? @map("email_verified_at")
 
   // Relations
-  spaces              Space[]            @relation("SpaceCreator")
-  posts               Post[]             @relation("PostAuthor")
-  comments            Comment[]          @relation("CommentAuthor")
-  votes               Vote[]
-  subscriptions       Subscription[]
-  moderatorRoles      Moderator[]        @relation("ModeratorUser")
-  modActions          ModAction[]        @relation("ModActionModerator")
-  modActionsReversed  ModAction[]        @relation("ModActionReverser")
-  adminActions        AdminAction[]
-  bansIssued          Ban[]              @relation("BanIssuer")
-  bansReceived        Ban[]              @relation("BanReceiver")
-  appeals             Appeal[]           @relation("AppealUser")
-  appealsReviewed     Appeal[]           @relation("AppealReviewer")
-  modElections        ModElection[]      @relation("ElectionCandidate")
-  electionVotes       ElectionVote[]
-  reports             Report[]           @relation("ReportReporter")
-  reportsReviewed     Report[]           @relation("ReportReviewer")
-  postsRemoved        Post[]             @relation("PostRemover")
-  commentsRemoved     Comment[]          @relation("CommentRemover")
-  moderatorsAdded     Moderator[]        @relation("ModeratorAdder")
-  savedPosts          SavedPost[]
-  savedComments       SavedComment[]
+  spaces             Space[]           @relation("SpaceCreator")
+  posts              Post[]            @relation("PostAuthor")
+  comments           Comment[]         @relation("CommentAuthor")
+  votes              Vote[]
+  subscriptions      Subscription[]
+  moderatorRoles     Moderator[]       @relation("ModeratorUser")
+  modActions         ModAction[]       @relation("ModActionModerator")
+  modActionsReversed ModAction[]       @relation("ModActionReverser")
+  adminActions       AdminAction[]
+  bansIssued         Ban[]             @relation("BanIssuer")
+  bansReceived       Ban[]             @relation("BanReceiver")
+  appeals            Appeal[]          @relation("AppealUser")
+  appealsReviewed    Appeal[]          @relation("AppealReviewer")
+  modElections       ModElection[]     @relation("ElectionCandidate")
+  electionVotes      ElectionVote[]
+  reports            Report[]          @relation("ReportReporter")
+  reportsReviewed    Report[]          @relation("ReportReviewer")
+  postsRemoved       Post[]            @relation("PostRemover")
+  commentsRemoved    Comment[]         @relation("CommentRemover")
+  moderatorsAdded    Moderator[]       @relation("ModeratorAdder")
+  savedPosts         SavedPost[]
+  savedComments      SavedComment[]
+  notifications      Notification[]
+  authTokens         AuthToken[]
+  uploads            Upload[]
+  electionsNominated ModElection[]     @relation("ElectionNominator")
+  communityBallots   CommunityBallot[]
+  proposals          CommunityVote[]   @relation("VoteProposer")
 
   @@index([username])
   @@index([email])
@@ -58,31 +65,33 @@ model User {
 }
 
 model Space {
-  id               String   @id @default(uuid())
-  name             String   @unique @db.VarChar(50)
-  displayName      String   @map("display_name") @db.VarChar(100)
-  description      String?
-  createdAt        DateTime @default(now()) @map("created_at")
-  creatorId        String   @map("creator_id")
-  subscriberCount  Int      @default(0) @map("subscriber_count")
-  rules            Json?
-  sidebarContent   String?  @map("sidebar_content")
-  isNsfw           Boolean  @default(false) @map("is_nsfw")
-  nsfwType         String?  @map("nsfw_type") @db.VarChar(20) // 'none', 'partial', 'full'
-  adEnabled        Boolean  @default(false) @map("ad_enabled")
+  id              String    @id @default(uuid())
+  name            String    @unique @db.VarChar(50)
+  displayName     String    @map("display_name") @db.VarChar(100)
+  description     String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  creatorId       String    @map("creator_id")
+  subscriberCount Int       @default(0) @map("subscriber_count")
+  rules           Json?
+  sidebarContent  String?   @map("sidebar_content")
+  isNsfw          Boolean   @default(false) @map("is_nsfw")
+  nsfwType        String?   @map("nsfw_type") @db.VarChar(20) // 'none', 'partial', 'full'
+  adEnabled       Boolean   @default(false) @map("ad_enabled")
+  isPrivate       Boolean   @default(false) @map("is_private")
+  deletedAt       DateTime? @map("deleted_at")
 
   // Relations
-  creator         User             @relation("SpaceCreator", fields: [creatorId], references: [id])
-  posts           Post[]
-  subscriptions   Subscription[]
-  moderators      Moderator[]
-  modActions      ModAction[]
-  bans            Ban[]
-  appeals         Appeal[]
-  modElections    ModElection[]
-  communityVotes  CommunityVote[]
-  reports         Report[]
-  flairs          Flair[]
+  creator        User            @relation("SpaceCreator", fields: [creatorId], references: [id])
+  posts          Post[]
+  subscriptions  Subscription[]
+  moderators     Moderator[]
+  modActions     ModAction[]
+  bans           Ban[]
+  appeals        Appeal[]
+  modElections   ModElection[]
+  communityVotes CommunityVote[]
+  reports        Report[]
+  flairs         Flair[]
 
   @@index([name])
   @@index([createdAt])
@@ -90,32 +99,32 @@ model Space {
 }
 
 model Post {
-  id             String    @id @default(uuid())
-  spaceId        String    @map("space_id")
-  authorId       String    @map("author_id")
-  title          String    @db.VarChar(300)
-  content        String?
-  postType       String    @map("post_type") @db.VarChar(20) // 'text', 'link', 'image', 'video'
-  url            String?
-  flairId        String?   @map("flair_id")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  editedAt       DateTime? @map("edited_at")
-  voteScore      Int       @default(0) @map("vote_score")
-  hotScore       Float     @default(0) @map("hot_score")
-  commentCount   Int       @default(0) @map("comment_count")
-  isNsfw         Boolean   @default(false) @map("is_nsfw")
-  isPinned       Boolean   @default(false) @map("is_pinned")
-  removed        Boolean   @default(false)
-  removedBy      String?   @map("removed_by")
-  removalReason  String?   @map("removal_reason")
+  id            String    @id @default(uuid())
+  spaceId       String    @map("space_id")
+  authorId      String    @map("author_id")
+  title         String    @db.VarChar(300)
+  content       String?
+  postType      String    @map("post_type") @db.VarChar(20) // 'text', 'link', 'image', 'video'
+  url           String?
+  flairId       String?   @map("flair_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  editedAt      DateTime? @map("edited_at")
+  voteScore     Int       @default(0) @map("vote_score")
+  hotScore      Float     @default(0) @map("hot_score")
+  commentCount  Int       @default(0) @map("comment_count")
+  isNsfw        Boolean   @default(false) @map("is_nsfw")
+  isPinned      Boolean   @default(false) @map("is_pinned")
+  removed       Boolean   @default(false)
+  removedBy     String?   @map("removed_by")
+  removalReason String?   @map("removal_reason")
 
   // Relations
-  space        Space       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  author       User        @relation("PostAuthor", fields: [authorId], references: [id])
-  remover      User?       @relation("PostRemover", fields: [removedBy], references: [id])
-  flair        Flair?      @relation(fields: [flairId], references: [id], onDelete: SetNull)
-  comments     Comment[]
-  savedBy      SavedPost[]
+  space    Space       @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  author   User        @relation("PostAuthor", fields: [authorId], references: [id])
+  remover  User?       @relation("PostRemover", fields: [removedBy], references: [id])
+  flair    Flair?      @relation(fields: [flairId], references: [id], onDelete: SetNull)
+  comments Comment[]
+  savedBy  SavedPost[]
 
   @@index([spaceId, createdAt])
   @@index([spaceId, hotScore])
@@ -163,7 +172,7 @@ model Vote {
   createdAt  DateTime @default(now()) @map("created_at")
 
   // Relations
-  user    User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, targetId, targetType])
   @@index([targetId, targetType])
@@ -194,15 +203,15 @@ model Moderator {
   id          String   @id @default(uuid())
   userId      String   @map("user_id")
   spaceId     String   @map("space_id")
-  permissions Json     // Granular permissions object
+  permissions Json // Granular permissions object
   addedAt     DateTime @default(now()) @map("added_at")
   addedBy     String   @map("added_by")
   isFounder   Boolean  @default(false) @map("is_founder")
 
   // Relations
-  user    User  @relation("ModeratorUser", fields: [userId], references: [id])
-  space   Space @relation(fields: [spaceId], references: [id])
-  addedByUser User @relation("ModeratorAdder", fields: [addedBy], references: [id])
+  user        User  @relation("ModeratorUser", fields: [userId], references: [id])
+  space       Space @relation(fields: [spaceId], references: [id])
+  addedByUser User  @relation("ModeratorAdder", fields: [addedBy], references: [id])
 
   @@unique([userId, spaceId])
   @@index([spaceId])
@@ -217,16 +226,16 @@ model ModAction {
   actionType String    @map("action_type") @db.VarChar(50) // 'remove_post', 'remove_comment', 'ban_user', etc.
   targetId   String    @map("target_id")
   targetType String    @map("target_type") @db.VarChar(20) // 'post', 'comment', 'user'
-  reason     String    // REQUIRED
+  reason     String // REQUIRED
   createdAt  DateTime  @default(now()) @map("created_at")
   reversedBy String?   @map("reversed_by")
   reversedAt DateTime? @map("reversed_at")
 
   // Relations
-  mod       User   @relation("ModActionModerator", fields: [modId], references: [id])
-  space     Space  @relation(fields: [spaceId], references: [id])
-  reverser  User?  @relation("ModActionReverser", fields: [reversedBy], references: [id])
-  appeals   Appeal[]
+  mod      User     @relation("ModActionModerator", fields: [modId], references: [id])
+  space    Space    @relation(fields: [spaceId], references: [id])
+  reverser User?    @relation("ModActionReverser", fields: [reversedBy], references: [id])
+  appeals  Appeal[]
 
   @@index([spaceId, createdAt])
   @@index([modId])
@@ -240,7 +249,7 @@ model AdminAction {
   actionType    String   @map("action_type") @db.VarChar(50) // 'remove_mod', 'legal_takedown', 'ban_user'
   targetId      String   @map("target_id")
   targetType    String   @map("target_type") @db.VarChar(20)
-  justification String   // PUBLIC and REQUIRED
+  justification String // PUBLIC and REQUIRED
   evidence      String?
   createdAt     DateTime @default(now()) @map("created_at")
 
@@ -256,15 +265,15 @@ model Ban {
   userId    String    @map("user_id")
   spaceId   String?   @map("space_id") // NULL for site-wide ban
   bannedBy  String    @map("banned_by")
-  reason    String    // REQUIRED
+  reason    String // REQUIRED
   createdAt DateTime  @default(now()) @map("created_at")
   expiresAt DateTime? @map("expires_at") // NULL for permanent
   isActive  Boolean   @default(true) @map("is_active")
 
   // Relations
-  user     User   @relation("BanReceiver", fields: [userId], references: [id])
-  space    Space? @relation(fields: [spaceId], references: [id])
-  bannedByUser User @relation("BanIssuer", fields: [bannedBy], references: [id])
+  user         User   @relation("BanReceiver", fields: [userId], references: [id])
+  space        Space? @relation(fields: [spaceId], references: [id])
+  bannedByUser User   @relation("BanIssuer", fields: [bannedBy], references: [id])
 
   @@index([userId, spaceId])
   @@index([expiresAt])
@@ -272,16 +281,17 @@ model Ban {
 }
 
 model Appeal {
-  id           String    @id @default(uuid())
-  userId       String    @map("user_id")
-  spaceId      String    @map("space_id")
-  modActionId  String    @map("mod_action_id")
-  reason       String
-  status       String    @default("pending") @db.VarChar(20) // 'pending', 'approved', 'denied'
-  reviewedBy   String?   @map("reviewed_by")
-  reviewerNotes String?  @map("reviewer_notes")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  resolvedAt   DateTime? @map("resolved_at")
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  spaceId       String    @map("space_id")
+  modActionId   String    @map("mod_action_id")
+  reason        String
+  status        String    @default("pending") @db.VarChar(20) // 'pending', 'approved', 'denied'
+  reviewedBy    String?   @map("reviewed_by")
+  reviewerNotes String?   @map("reviewer_notes")
+  escalatedAt   DateTime? @map("escalated_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  resolvedAt    DateTime? @map("resolved_at")
 
   // Relations
   user      User      @relation("AppealUser", fields: [userId], references: [id])
@@ -295,21 +305,28 @@ model Appeal {
 }
 
 model ModElection {
-  id            String   @id @default(uuid())
-  spaceId       String   @map("space_id")
-  candidateId   String   @map("candidate_id")
-  electionType  String   @map("election_type") @db.VarChar(20) // 'add_mod' or 'remove_mod'
-  nominationDate DateTime @default(now()) @map("nomination_date")
-  electionStart DateTime @map("election_start")
-  electionEnd   DateTime @map("election_end")
-  votesFor      Int      @default(0) @map("votes_for")
-  votesAgainst  Int      @default(0) @map("votes_against")
-  status        String   @default("active") @db.VarChar(20) // 'active', 'passed', 'failed'
+  id                 String    @id @default(uuid())
+  spaceId            String    @map("space_id")
+  candidateId        String    @map("candidate_id")
+  electionType       String    @map("election_type") @db.VarChar(20) // 'add_mod' or 'remove_mod'
+  nominationDate     DateTime  @default(now()) @map("nomination_date")
+  electionStart      DateTime  @map("election_start")
+  electionEnd        DateTime  @map("election_end")
+  votesFor           Int       @default(0) @map("votes_for")
+  votesAgainst       Int       @default(0) @map("votes_against")
+  status             String    @default("active") @db.VarChar(20) // 'active', 'passed', 'failed'
+  nominatorId        String?   @map("nominator_id")
+  justification      String?
+  subscribersAtStart Int       @default(0) @map("subscribers_at_start")
+  requiredApproval   Float     @default(0.6) @map("required_approval")
+  acceptedAt         DateTime? @map("accepted_at")
+  closedAt           DateTime? @map("closed_at")
 
   // Relations
-  space       Space           @relation(fields: [spaceId], references: [id])
-  candidate   User            @relation("ElectionCandidate", fields: [candidateId], references: [id])
-  votes       ElectionVote[]
+  space     Space          @relation(fields: [spaceId], references: [id])
+  candidate User           @relation("ElectionCandidate", fields: [candidateId], references: [id])
+  nominator User?          @relation("ElectionNominator", fields: [nominatorId], references: [id])
+  votes     ElectionVote[]
 
   @@index([spaceId, status])
   @@map("mod_elections")
@@ -319,7 +336,7 @@ model ElectionVote {
   id         String   @id @default(uuid())
   electionId String   @map("election_id")
   userId     String   @map("user_id")
-  vote       Boolean  // true = for, false = against
+  vote       Boolean // true = for, false = against
   createdAt  DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -331,43 +348,59 @@ model ElectionVote {
 }
 
 model CommunityVote {
-  id          String    @id @default(uuid())
-  spaceId     String    @map("space_id")
-  voteType    String    @map("vote_type") @db.VarChar(50) // 'enable_ads', 'change_rules', 'go_private'
-  proposal    String
-  createdAt   DateTime  @default(now()) @map("created_at")
-  endsAt      DateTime  @map("ends_at")
-  votesFor    Int       @default(0) @map("votes_for")
-  votesAgainst Int      @default(0) @map("votes_against")
-  status      String    @default("active") @db.VarChar(20)
-  result      Json?
+  id                 String    @id @default(uuid())
+  spaceId            String    @map("space_id")
+  voteType           String    @map("vote_type") @db.VarChar(50) // 'enable_ads', 'change_rules', 'go_private'
+  proposal           String
+  createdAt          DateTime  @default(now()) @map("created_at")
+  endsAt             DateTime  @map("ends_at")
+  votesFor           Int       @default(0) @map("votes_for")
+  votesAgainst       Int       @default(0) @map("votes_against")
+  status             String    @default("active") @db.VarChar(20)
+  result             Json?
+  title              String    @default("")
+  proposerId         String?   @map("proposer_id")
+  payload            Json?
+  votingStartsAt     DateTime  @default(now()) @map("voting_starts_at")
+  subscribersAtStart Int       @default(0) @map("subscribers_at_start")
+  requiredApproval   Float     @default(0.6) @map("required_approval")
+  requiredTurnout    Float     @default(0.15) @map("required_turnout")
+  closedAt           DateTime? @map("closed_at")
 
   // Relations
   space Space @relation(fields: [spaceId], references: [id])
+
+  proposer User?             @relation("VoteProposer", fields: [proposerId], references: [id])
+  ballots  CommunityBallot[]
 
   @@index([spaceId, status])
   @@map("community_votes")
 }
 
 model Report {
-  id         String    @id @default(uuid())
-  reporterId String    @map("reporter_id")
-  targetId   String    @map("target_id")
-  targetType String    @map("target_type") @db.VarChar(20) // 'post', 'comment', 'user'
-  reason     String
-  status     String    @default("pending") @db.VarChar(20)
-  reviewedBy String?   @map("reviewed_by")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  resolvedAt DateTime? @map("resolved_at")
-  spaceId    String?   @map("space_id")
+  id             String    @id @default(uuid())
+  reporterId     String    @map("reporter_id")
+  targetId       String    @map("target_id")
+  targetType     String    @map("target_type") @db.VarChar(20) // 'post', 'comment', 'user'
+  reason         String
+  status         String    @default("pending") @db.VarChar(20)
+  reviewedBy     String?   @map("reviewed_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  resolvedAt     DateTime? @map("resolved_at")
+  spaceId        String?   @map("space_id")
+  category       String    @default("other") @db.VarChar(30)
+  resolution     String?   @db.VarChar(30)
+  resolutionNote String?   @map("resolution_note")
 
   // Relations
   reporter User   @relation("ReportReporter", fields: [reporterId], references: [id])
   reviewer User?  @relation("ReportReviewer", fields: [reviewedBy], references: [id])
   space    Space? @relation(fields: [spaceId], references: [id])
 
+  @@unique([reporterId, targetId, targetType])
   @@index([status])
   @@index([targetId, targetType])
+  @@index([spaceId, status])
   @@map("reports")
 }
 
@@ -406,11 +439,11 @@ model Flair {
   spaceId   String   @map("space_id")
   text      String   @db.VarChar(30)
   textColor String   @map("text_color") @db.VarChar(7) // hex color like #FFFFFF
-  bgColor   String   @map("bg_color") @db.VarChar(7)    // hex color like #0000FF
+  bgColor   String   @map("bg_color") @db.VarChar(7) // hex color like #0000FF
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  space Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   posts Post[]
 
   @@index([spaceId])
@@ -444,4 +477,75 @@ model TransparencyCanary {
 
   @@index([validUntil])
   @@map("transparency_canary")
+}
+
+// ============================================================================
+// LAUNCH TABLES: ballots, notifications, auth tokens, uploads
+// ============================================================================
+
+model CommunityBallot {
+  id        String   @id @default(uuid())
+  voteId    String   @map("vote_id")
+  userId    String   @map("user_id")
+  vote      Boolean // true = for, false = against
+  createdAt DateTime @default(now()) @map("created_at")
+
+  voteRef CommunityVote @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id])
+
+  @@unique([voteId, userId])
+  @@map("community_ballots")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  type      String    @db.VarChar(40)
+  title     String
+  body      String?
+  link      String?
+  data      Json?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// One-time tokens for verifying an email address or resetting a password. Only a hash is stored.
+model AuthToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  type      String    @db.VarChar(30) // 'verify_email' | 'reset_password'
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+model Upload {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  kind       String   @default("image") @db.VarChar(20)
+  storageKey String   @unique @map("storage_key")
+  url        String
+  mime       String   @db.VarChar(100)
+  bytes      Int
+  width      Int?
+  height     Int?
+  sha256     String   @db.VarChar(64)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("uploads")
 }
