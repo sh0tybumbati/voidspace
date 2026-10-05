@@ -1,414 +1,119 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRef, useState } from 'react';
+import { BadgeCheck, MailWarning, Moon, Sun, Upload } from 'lucide-react';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
-import { api } from '@/lib/api';
-import { useRouter } from 'next/navigation';
-import Header from '@/components/layout/Header';
+import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Field, Input, Textarea } from '@/components/ui/Field';
+import { EmptyState } from '@/components/ui/Misc';
+import { toast } from '@/components/ui/Toast';
 
-export default function SettingsPage() {
-  const { user, refreshUser, isLoading } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const router = useRouter();
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <Card className="p-5"><h2 className="mb-4 text-base font-semibold">{title}</h2>{children}</Card>;
+}
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'account' | 'preferences'>('profile');
+function ProfileSection() {
+  const { user, refreshUser } = useAuth();
+  const [bio, setBio] = useState(user?.bio ?? '');
+  const [avatar, setAvatar] = useState<string | null>(user?.avatarUrl ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  if (!user) return null;
 
-  // Profile settings
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [bio, setBio] = useState('');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  // Account settings
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSavingPassword, setIsSavingPassword] = useState(false);
-
-  // Preferences
-  const [showNsfw, setShowNsfw] = useState(false);
-  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
-
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  useEffect(() => {
-    // Wait for auth to finish loading
-    if (isLoading) return;
-
-    // Redirect to login if not authenticated
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    // Load user profile data
-    loadUserProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isLoading]);
-
-  const loadUserProfile = async () => {
-    if (!user) return;
-
-    try {
-      const data = await api.getUserProfile(user.username);
-      setAvatarUrl(data.user.avatarUrl || '');
-      setBio(data.user.bio || '');
-      setShowNsfw(data.user.preferences?.showNsfw || false);
-    } catch (error: any) {
-      console.error('Failed to load profile:', error);
-    }
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    setUploading(true);
+    try { setAvatar((await api.uploadImage(f)).url); } catch (e) { toast.error(e instanceof Error ? e.message : 'Upload failed.'); } finally { setUploading(false); if (file.current) file.current.value = ''; }
   };
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setError('');
-    setSuccess('');
-    setIsSavingProfile(true);
-
-    try {
-      await api.updateProfile(user.username, {
-        avatarUrl: avatarUrl.trim() || null,
-        bio: bio.trim() || null,
-      });
-
-      await refreshUser();
-      setSuccess('Profile updated successfully!');
-    } catch (error: any) {
-      setError(error.message || 'Failed to update profile');
-    } finally {
-      setIsSavingProfile(false);
-    }
+  const save = async () => {
+    setBusy(true);
+    try { await api.updateProfile(user.username, { bio: bio.trim() || null, avatarUrl: avatar }); await refreshUser(); toast.success('Profile saved.'); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save.'); } finally { setBusy(false); }
   };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    setIsSavingPassword(true);
-
-    try {
-      await api.changePassword(currentPassword, newPassword);
-      setSuccess('Password changed successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error: any) {
-      setError(error.message || 'Failed to change password');
-    } finally {
-      setIsSavingPassword(false);
-    }
-  };
-
-  const handleSavePreferences = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setError('');
-    setSuccess('');
-    setIsSavingPreferences(true);
-
-    try {
-      await api.updateProfile(user.username, {
-        preferences: { showNsfw },
-      });
-
-      await refreshUser();
-      setSuccess('Preferences saved successfully!');
-    } catch (error: any) {
-      setError(error.message || 'Failed to save preferences');
-    } finally {
-      setIsSavingPreferences(false);
-    }
-  };
-
-  // Show loading state while checking auth
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <Header />
-        <main className="max-w-4xl mx-auto px-4 py-8">
-          <div className="text-center py-12">
-            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // Don't render anything if redirecting to login
-  if (!user) {
-    return null;
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
-
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-6">
-          <button
-            onClick={() => {
-              setActiveTab('profile');
-              setError('');
-              setSuccess('');
-            }}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeTab === 'profile'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
-            Profile
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('account');
-              setError('');
-              setSuccess('');
-            }}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeTab === 'account'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
-            Account
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('preferences');
-              setError('');
-              setSuccess('');
-            }}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeTab === 'preferences'
-                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
-            Preferences
-          </button>
+    <Section title="Profile">
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Avatar name={user.username} src={api.assetUrl(avatar)} size={64} />
+          <div className="flex flex-wrap gap-2">
+            <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => pick(e.target.files?.[0])} />
+            <Button size="sm" loading={uploading} onClick={() => file.current?.click()}><Upload size={14} /> Upload picture</Button>
+            {avatar ? <Button size="sm" variant="ghost" onClick={() => setAvatar(null)}>Remove</Button> : null}
+          </div>
         </div>
+        <Field label="Bio" hint={`${bio.length} / 500`}>{(id) => <Textarea id={id} rows={4} maxLength={500} value={bio} onChange={(e) => setBio(e.target.value)} />}</Field>
+        <div className="flex justify-end"><Button variant="primary" loading={busy} onClick={save}>Save profile</Button></div>
+      </div>
+    </Section>
+  );
+}
 
-        {/* Error/Success messages */}
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        )}
+function EmailSection() {
+  const { user } = useAuth();
+  const [sending, setSending] = useState(false);
+  if (!user) return null;
+  const send = async () => {
+    setSending(true);
+    try { const r = await api.post<{ message: string }>('/api/auth/resend-verification'); toast.success(r.message); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Could not send.'); } finally { setSending(false); }
+  };
+  return (
+    <Section title="Email">
+      <p className="font-mono text-sm">{user.email}</p>
+      {user.emailVerifiedAt ? <p className="mt-2 flex items-center gap-1.5 text-sm text-ok"><BadgeCheck size={16} /> Verified</p> : (
+        <div className="mt-2 flex flex-wrap items-center gap-3"><p className="flex items-center gap-1.5 text-sm text-warn"><MailWarning size={16} /> Not verified yet</p><Button size="sm" loading={sending} onClick={send}>Send a verification link</Button></div>
+      )}
+      <p className="mt-3 text-xs text-muted">We use your email only for verification and password resets.</p>
+    </Section>
+  );
+}
 
-        {success && (
-          <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-            <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
-          </div>
-        )}
+function PasswordSection() {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true); setError(null);
+    try {
+      const r = await api.changePassword(current, next);
+      if (r.token) api.setToken(r.token);
+      setCurrent(''); setNext(''); toast.success('Password changed. Other devices were signed out.');
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not change the password.'); } finally { setBusy(false); }
+  };
+  return (
+    <Section title="Password">
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Current password">{(id) => <Input id={id} type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}</Field>
+        <Field label="New password" hint="At least 8 characters. Changing it signs out every other device.">{(id) => <Input id={id} type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />}</Field>
+        {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+        <div className="flex justify-end"><Button type="submit" variant="primary" loading={busy} disabled={!current || next.length < 8}>Change password</Button></div>
+      </form>
+    </Section>
+  );
+}
 
-        {/* Profile Tab */}
-        {activeTab === 'profile' && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Profile Settings</h2>
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Avatar URL
-                </label>
-                <input
-                  type="url"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://example.com/avatar.jpg"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-900"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Enter a URL to an image for your avatar
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Bio
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  maxLength={500}
-                  placeholder="Tell us about yourself..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[100px] text-gray-900 dark:text-gray-100 dark:bg-gray-900"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {bio.length}/500 characters
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                >
-                  {isSavingProfile ? 'Saving...' : 'Save Profile'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Account Tab */}
-        {activeTab === 'account' && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Account Information</h2>
-              <div className="space-y-2">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
-                  <p className="text-gray-900 dark:text-gray-100">{user.username}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-                  <p className="text-gray-900 dark:text-gray-100">{user.email}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Alignment</label>
-                  <p className="text-gray-900 dark:text-gray-100">{user.alignment}</p>
-                </div>
-              </div>
-            </div>
-
-            <hr className="border-gray-200 dark:border-gray-700 my-6" />
-
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Change Password</h2>
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-900"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Must be at least 8 characters
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-900"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={isSavingPassword}
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                >
-                  {isSavingPassword ? 'Changing...' : 'Change Password'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Preferences Tab */}
-        {activeTab === 'preferences' && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Preferences</h2>
-            <form onSubmit={handleSavePreferences} className="space-y-6">
-              {/* Theme preference */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Theme
-                </label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleTheme}
-                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium"
-                  >
-                    {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                  </button>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Current: {theme === 'dark' ? 'Dark' : 'Light'}
-                  </span>
-                </div>
-              </div>
-
-              {/* NSFW content */}
-              <div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showNsfw}
-                    onChange={(e) => setShowNsfw(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      Show NSFW Content
-                    </span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Display posts and spaces marked as NSFW
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={isSavingPreferences}
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                >
-                  {isSavingPreferences ? 'Saving...' : 'Save Preferences'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </main>
+export default function SettingsPage() {
+  const { user, isLoading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  if (!isLoading && !user) return <EmptyState title="Sign in to change your settings" action={<Link href="/login?redirect=/settings" className="link">Sign in</Link>} />;
+  if (!user) return null;
+  return (
+    <div className="mx-auto max-w-2xl space-y-5">
+      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      <ProfileSection />
+      <EmailSection />
+      <PasswordSection />
+      <Section title="Appearance">
+        <div className="flex items-center justify-between"><p className="text-sm text-ink-2">Theme: <b>{theme}</b></p><Button size="sm" onClick={toggleTheme}>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} Switch to {theme === 'dark' ? 'light' : 'dark'}</Button></div>
+      </Section>
     </div>
   );
 }

@@ -1,129 +1,56 @@
 'use client';
 
 import { useState } from 'react';
+import { ArrowBigDown, ArrowBigUp } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
+import { cn } from '@/lib/cn';
+import { toast } from '@/components/ui/Toast';
 
-interface VoteButtonsProps {
-  targetId: string;
-  targetType: 'post' | 'comment';
-  initialVoteScore: number;
-  initialUserVote: number | null;
-  onVoteChange?: (newScore: number, newUserVote: number | null) => void;
-}
+type Kind = 'post' | 'comment';
 
-export default function VoteButtons({
-  targetId,
-  targetType,
-  initialVoteScore,
-  initialUserVote,
-  onVoteChange,
-}: VoteButtonsProps) {
-  const [voteScore, setVoteScore] = useState(initialVoteScore);
-  const [userVote, setUserVote] = useState<number | null>(initialUserVote);
-  const [isVoting, setIsVoting] = useState(false);
+/**
+ * Up/down voting with the count between. Updates immediately and rolls back if the server refuses.
+ * `layout="rail"` stacks vertically (post cards), `"inline"` goes in a row (comments).
+ */
+export default function VoteButtons({ kind, id, score, userVote, layout = 'rail' }: { kind: Kind; id: string; score: number; userVote?: number | null; layout?: 'rail' | 'inline' }) {
+  const { user } = useAuth();
+  const [state, setState] = useState({ score, vote: userVote ?? 0 });
+  const [busy, setBusy] = useState(false);
 
-  const handleVote = async (voteValue: 1 | -1) => {
-    if (isVoting) return;
-
-    const token = api.getToken();
-    if (!token) {
-      alert('Please login to vote');
-      return;
-    }
-
-    setIsVoting(true);
-
+  const cast = async (value: 1 | -1) => {
+    if (!user) { toast.info('Sign in to vote.', '/login'); return; }
+    if (busy) return;
+    const previous = state;
+    const next = state.vote === value ? 0 : value;
+    setState({ vote: next, score: state.score - state.vote + next });
+    setBusy(true);
     try {
-      let response;
-      if (targetType === 'post') {
-        response = await api.voteOnPost(targetId, voteValue);
-      } else {
-        response = await api.voteOnComment(targetId, voteValue);
-      }
-
-      const newScore = response.voteScore;
-
-      // Determine new user vote based on response message
-      let newUserVote: number | null = null;
-      if (response.message === 'Vote added') {
-        newUserVote = voteValue;
-      } else if (response.message === 'Vote updated') {
-        newUserVote = voteValue;
-      } else if (response.message === 'Vote removed') {
-        newUserVote = null;
-      }
-
-      setVoteScore(newScore);
-      setUserVote(newUserVote);
-
-      if (onVoteChange) {
-        onVoteChange(newScore, newUserVote);
-      }
-    } catch (error: any) {
-      console.error('Vote error:', error);
-      alert(error.message || 'Failed to vote');
+      if (next === 0) await (kind === 'post' ? api.removePostVote(id) : api.removeCommentVote(id));
+      else await (kind === 'post' ? api.voteOnPost(id, value) : api.voteOnComment(id, value));
+    } catch (e) {
+      setState(previous);
+      toast.error(e instanceof Error ? e.message : 'Could not record your vote.');
     } finally {
-      setIsVoting(false);
+      setBusy(false);
     }
   };
 
-  const getScoreColor = () => {
-    if (voteScore > 0) return 'text-green-600';
-    if (voteScore < 0) return 'text-red-600';
-    return 'text-gray-600';
+  const btn = (value: 1 | -1, Icon: typeof ArrowBigUp, label: string) => {
+    const active = state.vote === value;
+    return (
+      <button onClick={() => cast(value)} aria-label={label} aria-pressed={active}
+        className={cn('grid h-7 w-7 place-items-center rounded transition hover:bg-surface-3', active ? (value === 1 ? 'text-accent-text' : 'text-danger') : 'text-muted hover:text-ink')}>
+        <Icon size={20} className={cn(active && 'animate-pop')} fill={active ? 'currentColor' : 'none'} />
+      </button>
+    );
   };
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <button
-        onClick={() => handleVote(1)}
-        disabled={isVoting}
-        className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-          userVote === 1 ? 'text-green-600' : 'text-gray-400'
-        } ${isVoting ? 'opacity-50 cursor-not-allowed' : ''}`}
-        aria-label="Upvote"
-      >
-        <svg
-          className="w-6 h-6"
-          fill={userVote === 1 ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M5 15l7-7 7 7"
-          />
-        </svg>
-      </button>
-
-      <span className={`text-sm font-semibold ${getScoreColor()}`}>
-        {voteScore}
-      </span>
-
-      <button
-        onClick={() => handleVote(-1)}
-        disabled={isVoting}
-        className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-          userVote === -1 ? 'text-red-600' : 'text-gray-400'
-        } ${isVoting ? 'opacity-50 cursor-not-allowed' : ''}`}
-        aria-label="Downvote"
-      >
-        <svg
-          className="w-6 h-6"
-          fill={userVote === -1 ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
+    <div className={cn('flex items-center', layout === 'rail' ? 'flex-col gap-0.5' : 'gap-1')}>
+      {btn(1, ArrowBigUp, `Upvote ${kind}`)}
+      <span className={cn('min-w-[1.5rem] text-center font-mono text-[0.8rem] font-semibold tabular', state.vote === 1 ? 'text-accent-text' : state.vote === -1 ? 'text-danger' : 'text-ink-2')}>{state.score}</span>
+      {btn(-1, ArrowBigDown, `Downvote ${kind}`)}
     </div>
   );
 }

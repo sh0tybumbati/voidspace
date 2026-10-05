@@ -2,19 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from './api';
+import type { User as AppUser } from './types';
 
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  avatarUrl?: string;
-  bio?: string;
-  preferences?: Record<string, any>;
-  isOver18: boolean;
-  isAdmin?: boolean;
-  alignment: number;
-  createdAt: string;
-}
+type User = AppUser;
 
 interface AuthContextType {
   user: User | null;

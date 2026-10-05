@@ -1,207 +1,119 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Clock, Compass, Flame, Newspaper, Scale, TrendingUp, Users, Vote } from 'lucide-react';
 import { api } from '@/lib/api';
-import PostCard from '@/components/posts/PostCard';
-import Header from '@/components/layout/Header';
-import LoadingCard from '@/components/ui/LoadingCard';
 import { useAuth } from '@/lib/auth-context';
+import type { Pagination, Post, SpaceSummary } from '@/lib/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { EmptyState, ErrorNotice, Skeleton } from '@/components/ui/Misc';
+import { Tabs } from '@/components/ui/Tabs';
+import PostCard from '@/components/posts/PostCard';
 
-export default function HomePage() {
-  const { user } = useAuth();
-  const [posts, setPosts] = useState<any[]>([]);
-  const [feed, setFeed] = useState<'hot' | 'new' | 'top' | 'subscribed'>('hot');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+type Feed = 'hot' | 'new' | 'top' | 'subscribed';
+
+function Hero() {
+  const points = [
+    { icon: Vote, title: 'Moderators are elected', body: 'Communities vote their moderators in and out. No one is appointed for life.' },
+    { icon: Scale, title: 'Moderation is public', body: 'Every removal and ban is logged with a reason anyone can read.' },
+    { icon: Newspaper, title: 'Appeals go to someone else', body: 'If a moderator removes your post, a different moderator hears your appeal.' },
+  ];
+  return (
+    <section className="relative overflow-hidden rounded-xl border border-line bg-surface p-6 sm:p-8">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full border border-accent/20" aria-hidden />
+      <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full border border-accent/30" aria-hidden />
+      <p className="meta text-accent-text">A different kind of community site</p>
+      <h1 className="mt-2 max-w-2xl text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl">Communities that govern themselves, in the open.</h1>
+      <p className="mt-3 max-w-xl text-ink-2">Voidspace has the discussions you expect, plus a rule book that is enforced on the platform too: elected moderators, public logs, real appeals.</p>
+      <div className="mt-5 flex flex-wrap gap-2"><ButtonLink href="/register" variant="primary" size="lg">Create an account</ButtonLink><ButtonLink href="/about" variant="outline" size="lg">How it works</ButtonLink></div>
+      <ul className="mt-7 grid gap-4 sm:grid-cols-3">
+        {points.map((p) => (<li key={p.title} className="flex gap-3"><p.icon size={18} className="mt-0.5 shrink-0 text-accent-text" /><div><p className="text-sm font-semibold">{p.title}</p><p className="mt-0.5 text-[0.82rem] text-muted">{p.body}</p></div></li>))}
+      </ul>
+    </section>
+  );
+}
+
+function PopularSpaces() {
+  const [spaces, setSpaces] = useState<SpaceSummary[] | null>(null);
+  useEffect(() => { api.getSpaces({ limit: 6, sortBy: 'popular' }).then((r: { spaces: SpaceSummary[] }) => setSpaces(r.spaces)).catch(() => setSpaces([])); }, []);
+  return (
+    <Card>
+      <CardHeader title={<span className="flex items-center gap-2"><TrendingUp size={15} /> Popular spaces</span>} action={<Link href="/spaces" className="text-xs font-medium text-accent-text hover:underline">See all</Link>} />
+      <ul className="p-2">
+        {spaces === null ? [0, 1, 2].map((i) => <li key={i} className="p-2"><Skeleton className="h-8 w-full" /></li>) : null}
+        {spaces?.map((s) => (
+          <li key={s.name}><Link href={`/v/${s.name}`} className="flex items-center gap-3 rounded px-2 py-2 hover:bg-surface-2"><Avatar name={s.name} size={30} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">v/{s.name}</p><p className="flex items-center gap-1 text-xs text-muted"><Users size={11} /> {s.subscriberCount} members</p></div></Link></li>
+        ))}
+        {spaces && !spaces.length ? <li className="p-3 text-sm text-muted">No spaces yet. Start one!</li> : null}
+      </ul>
+    </Card>
+  );
+}
+
+function HomeFeed() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const params = useSearchParams();
+  const feed = (params.get('feed') as Feed) || 'hot';
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchPosts();
-  }, [feed, page]);
-
-  const fetchPosts = async () => {
-    setIsLoading(true);
-    setError('');
-
+  const load = useCallback(async (p: number, f: Feed) => {
+    setLoading(true); setError(null);
     try {
-      const data = await api.getPosts({
-        feed,
-        page,
-        limit: 25,
-      });
-
-      if (page === 1) {
-        setPosts(data.posts);
-      } else {
-        setPosts((prev) => [...prev, ...data.posts]);
-      }
-
-      setHasMore(data.pagination.page < data.pagination.totalPages);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load posts');
+      const data = await api.getPosts({ page: p, limit: 20, feed: f });
+      setPosts((prev) => (p === 1 ? data.posts : [...prev, ...data.posts]));
+      setPagination(data.pagination);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load posts.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const handleFeedChange = (newFeed: typeof feed) => {
-    setFeed(newFeed);
-    setPage(1);
-    setPosts([]);
-  };
+  useEffect(() => { if (!isLoading) { setPage(1); void load(1, feed); } }, [feed, isLoading, user, load]);
 
-  const loadMore = () => {
-    if (!isLoading && hasMore) {
-      setPage((prev) => prev + 1);
-    }
-  };
+  const tabs = [
+    { id: 'hot' as Feed, label: <span className="flex items-center gap-1.5"><Flame size={14} /> Hot</span> },
+    { id: 'new' as Feed, label: <span className="flex items-center gap-1.5"><Clock size={14} /> New</span> },
+    { id: 'top' as Feed, label: <span className="flex items-center gap-1.5"><TrendingUp size={14} /> Top</span> },
+    ...(user ? [{ id: 'subscribed' as Feed, label: <span className="flex items-center gap-1.5"><Users size={14} /> Following</span> }] : []),
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-
-      {/* Main content */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Feed */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Feed selector */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleFeedChange('hot')}
-                  className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                    feed === 'hot'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
-                  </svg>
-                  Hot
-                </button>
-
-                <button
-                  onClick={() => handleFeedChange('new')}
-                  className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                    feed === 'new'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                  </svg>
-                  New
-                </button>
-
-                <button
-                  onClick={() => handleFeedChange('top')}
-                  className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
-                    feed === 'top'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-                  </svg>
-                  Top
-                </button>
-              </div>
-            </div>
-
-            {/* Posts */}
-            {isLoading && page === 1 ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <LoadingCard key={i} />
-                ))}
-              </div>
-            ) : error ? (
-              <div className="text-center py-12 text-red-600 dark:text-red-400">{error}</div>
-            ) : posts.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                No posts yet. Be the first to post!
-              </div>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {posts.map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
-                </div>
-
-                {/* Load more button */}
-                {hasMore && (
-                  <button
-                    onClick={loadMore}
-                    disabled={isLoading}
-                    className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? 'Loading...' : 'Load More'}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Create post card */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                Create Post
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Share your thoughts, links, images, or videos with the community.
-              </p>
-              <a
-                href="/submit"
-                className="block w-full px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white text-center rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 font-medium"
-              >
-                Create Post
-              </a>
-            </div>
-
-            {/* Welcome card (only show when not logged in) */}
-            {!user && (
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                  Welcome to Voidspace
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  A democratic social platform with transparent moderation and community governance.
-                </p>
-                <div className="space-y-2">
-                  <a
-                    href="/register"
-                    className="block w-full px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white text-center rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 font-medium"
-                  >
-                    Create Account
-                  </a>
-                  <a
-                    href="/login"
-                    className="block w-full px-4 py-2 border border-blue-600 dark:border-blue-500 text-blue-600 dark:text-blue-400 text-center rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900 font-medium"
-                  >
-                    Log In
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* About */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">About</h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                Voidspace is a community-driven platform where users have control over moderation through democratic elections and transparent governance.
-              </p>
-            </div>
-          </div>
-        </div>
-      </main>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="min-w-0 space-y-4">
+        {!isLoading && !user ? <Hero /> : null}
+        <Tabs tabs={tabs} value={feed} onChange={(id) => router.push(id === 'hot' ? '/' : `/?feed=${id}`)} />
+        {error ? <ErrorNotice message={error} onRetry={() => load(1, feed)} /> : null}
+        {loading && !posts.length ? <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-32 w-full" />)}</div> : null}
+        {!loading && !posts.length && !error ? (
+          <EmptyState icon={<Compass size={28} />} title={feed === 'subscribed' ? 'Your feed is empty' : 'Nothing here yet'} action={<ButtonLink href="/spaces" variant="primary">Explore spaces</ButtonLink>}>
+            {feed === 'subscribed' ? 'Join a few spaces and their posts will show up here.' : 'Be the first to post, or find a space to join.'}
+          </EmptyState>
+        ) : null}
+        <div className="space-y-3">{posts.map((p) => <PostCard key={p.id} post={p} />)}</div>
+        {pagination && page < pagination.totalPages ? <div className="flex justify-center"><Button loading={loading} onClick={() => { const n = page + 1; setPage(n); void load(n, feed); }}>Load more</Button></div> : null}
+      </div>
+      <aside className="hidden space-y-4 xl:block">
+        <PopularSpaces />
+        <Card className="p-4 text-sm text-ink-2">
+          <p className="font-semibold text-ink">Run your own space</p>
+          <p className="mt-1">Anyone can start a community. You begin as its founder, and the members can elect more moderators.</p>
+          <ButtonLink href="/spaces/create" variant="secondary" size="sm" className="mt-3">Create a space</ButtonLink>
+        </Card>
+      </aside>
     </div>
   );
+}
+
+export default function HomePage() {
+  return <Suspense fallback={<Skeleton className="h-64 w-full" />}><HomeFeed /></Suspense>;
 }

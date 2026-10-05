@@ -1,60 +1,34 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark';
+type Theme = 'dark' | 'light';
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const ThemeContext = createContext<ThemeContextType>({ theme: 'dark', toggleTheme: () => {} });
 
+/** Dark is the default. The layout's blocking script adds the "light" class before first paint if the visitor chose it. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Initialize theme from the DOM class (set by blocking script) or default to light
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    }
-    return 'light';
-  });
-  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
-    setMounted(true);
-    // Sync theme state with DOM (which was already set by blocking script)
-    const hasDarkClass = document.documentElement.classList.contains('dark');
-    setTheme(hasDarkClass ? 'dark' : 'light');
+    setTheme(document.documentElement.classList.contains('light') ? 'light' : 'dark');
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  };
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => {
+      const next: Theme = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.classList.toggle('light', next === 'light');
+      try { localStorage.setItem('theme', next); } catch { /* private mode: the choice just will not persist */ }
+      return next;
+    });
+  }, []);
 
-  // Prevent flash of unstyled content
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 }
 
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    // Return default values during SSR or if provider is missing
-    return {
-      theme: 'light' as Theme,
-      toggleTheme: () => {},
-    };
-  }
-  return context;
-}
+export const useTheme = () => useContext(ThemeContext);

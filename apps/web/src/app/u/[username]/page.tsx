@@ -1,536 +1,87 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useState } from 'react';
+import { useParams } from 'next/navigation';
+import { CalendarDays, Crown, Settings, Shield } from 'lucide-react';
 import { api } from '@/lib/api';
-import Header from '@/components/layout/Header';
+import { useAuth } from '@/lib/auth-context';
+import { useAsync } from '@/lib/hooks';
+import type { Pagination, Post } from '@/lib/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { EmptyState, ErrorNotice, Skeleton, TimeAgo } from '@/components/ui/Misc';
+import { Tabs } from '@/components/ui/Tabs';
 import PostCard from '@/components/posts/PostCard';
-import { formatDistanceToNow } from 'date-fns';
 
-interface User {
-  id: string;
-  username: string;
-  createdAt: string;
-  alignment: number;
-  avatarUrl: string | null;
-  bio: string | null;
-  postCount?: number;
-  commentCount?: number;
-  moderatorOf?: Array<{
-    name: string;
-    displayName: string;
-    subscriberCount: number;
-    isFounder: boolean;
-    moderatorSince: string;
-  }>;
+interface Profile {
+  username: string; avatarUrl?: string | null; bio?: string | null; createdAt: string; alignment: number;
+  karma: { total: number; post: number; comment: number }; postCount: number; commentCount: number;
+  moderatorOf: { name: string; displayName: string; isFounder: boolean }[];
+}
+interface UserComment { id: string; content: string; voteScore: number; createdAt: string; removed?: boolean; post: { id: string; title: string; space: { name: string } } }
+type Tab = 'posts' | 'comments';
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return <div><p className="font-mono text-lg font-bold">{value.toLocaleString()}</p><p className="meta">{label}</p></div>;
 }
 
-interface SpaceAlignmentStats {
-  username: string;
-  space: {
-    name: string;
-    displayName: string;
-  };
-  spaceAlignment: number;
-  postAlignment: number;
-  commentAlignment: number;
-  postCount: number;
-  commentCount: number;
-}
+export default function ProfilePage() {
+  const { username } = useParams<{ username: string }>();
+  const { user } = useAuth();
+  const [tab, setTab] = useState<Tab>('posts');
+  const [page, setPage] = useState(1);
+  const profile = useAsync(() => api.getUserProfile(username).then((r) => r.user as Profile), [username]);
+  const list = useAsync(
+    () => (tab === 'posts' ? api.getUserPosts(username, page, 20) : api.getUserComments(username, page, 20)) as Promise<{ posts?: Post[]; comments?: UserComment[]; pagination: Pagination }>,
+    [username, tab, page, user?.id],
+    { enabled: Boolean(profile.data) },
+  );
 
-interface Post {
-  id: string;
-  title: string;
-  content: string | null;
-  url: string | null;
-  postType: string;
-  voteScore: number;
-  commentCount: number;
-  createdAt: string;
-  isNsfw: boolean;
-  space: {
-    name: string;
-    displayName: string;
-    isNsfw: boolean;
-  };
-  author: {
-    username: string;
-    avatarUrl: string | null;
-  };
-  userVote?: number | null;
-}
-
-interface Comment {
-  id: string;
-  content: string;
-  voteScore: number;
-  createdAt: string;
-  post: {
-    id: string;
-    title: string;
-    space: {
-      name: string;
-      displayName: string;
-    };
-  };
-  author: {
-    username: string;
-    avatarUrl: string | null;
-  };
-}
-
-interface Pagination {
-  page: number;
-  limit: number;
-  totalCount: number;
-  totalPages: number;
-}
-
-type Tab = 'posts' | 'comments' | 'about';
-
-export default function UserProfilePage() {
-  const params = useParams();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const username = params.username as string;
-  const spaceFilter = searchParams.get('space');
-
-  const [user, setUser] = useState<User | null>(null);
-  const [spaceStats, setSpaceStats] = useState<SpaceAlignmentStats | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('posts');
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [postsPagination, setPostsPagination] = useState<Pagination | null>(null);
-  const [commentsPagination, setCommentsPagination] = useState<Pagination | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    fetchUser();
-    if (spaceFilter) {
-      fetchSpaceStats();
-    } else {
-      setSpaceStats(null);
-    }
-  }, [username, spaceFilter]);
-
-  useEffect(() => {
-    if (activeTab === 'posts') {
-      fetchPosts();
-    } else {
-      fetchComments();
-    }
-  }, [activeTab, currentPage, username, spaceFilter]);
-
-  const fetchUser = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getUserProfile(username);
-      setUser(data.user);
-      setError(null);
-    } catch (error: any) {
-      console.error('Error fetching user:', error);
-      setError(error.message || 'Failed to load user profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSpaceStats = async () => {
-    if (!spaceFilter) return;
-
-    try {
-      const data = await api.getUserSpaceAlignment(username, spaceFilter);
-      setSpaceStats(data);
-    } catch (error) {
-      console.error('Error fetching space stats:', error);
-    }
-  };
-
-  const fetchPosts = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getUserPosts(username, currentPage, 25, spaceFilter || undefined);
-      setPosts(data.posts);
-      setPostsPagination(data.pagination);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchComments = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getUserComments(username, currentPage, 25, spaceFilter || undefined);
-      setComments(data.comments);
-      setCommentsPagination(data.pagination);
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTabChange = (tab: Tab) => {
-    setActiveTab(tab);
-    setCurrentPage(1);
-  };
-
-  const clearSpaceFilter = () => {
-    router.push(`/u/${username}`);
-  };
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <Header />
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
-            <p className="text-red-600 dark:text-red-400 text-lg">{error}</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (!user && loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <Header />
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          <div className="animate-pulse">
-            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg mb-6"></div>
-            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  const pagination = activeTab === 'posts' ? postsPagination : commentsPagination;
+  if (profile.error) return <EmptyState title="User not found">{profile.error}</EmptyState>;
+  const p = profile.data;
+  if (!p) return <Skeleton className="mx-auto h-48 max-w-4xl" />;
+  const own = user?.username === p.username;
+  const items = tab === 'posts' ? list.data?.posts : list.data?.comments;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Space Filter Banner */}
-        {spaceStats && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Showing activity in
-                  </span>
-                  <Link
-                    href={`/v/${spaceStats.space.name}`}
-                    className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
-                  >
-                    v/{spaceStats.space.name}
-                  </Link>
-                  <button
-                    onClick={clearSpaceFilter}
-                    className="ml-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                  >
-                    [clear filter]
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Space Alignment:</span>
-                    <div className={`text-lg font-bold ${
-                      spaceStats.spaceAlignment > 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : spaceStats.spaceAlignment < 0
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}>
-                      {spaceStats.spaceAlignment}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Posts:</span>
-                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                      {spaceStats.postCount}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Post Alignment:</span>
-                    <div className={`text-lg font-bold ${
-                      spaceStats.postAlignment > 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : spaceStats.postAlignment < 0
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}>
-                      {spaceStats.postAlignment}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Comments:</span>
-                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                      {spaceStats.commentCount}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">Comment Alignment:</span>
-                    <div className={`text-lg font-bold ${
-                      spaceStats.commentAlignment > 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : spaceStats.commentAlignment < 0
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}>
-                      {spaceStats.commentAlignment}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* User Header */}
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6">
-          <div className="flex items-start gap-4">
-            {/* Avatar */}
-            <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-3xl font-bold text-blue-600 dark:text-blue-300">
-              {user.username[0].toUpperCase()}
-            </div>
-
-            {/* User Info */}
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                u/{user.username}
-              </h1>
-
-              {user.bio && (
-                <p className="text-gray-700 dark:text-gray-300 mb-3">
-                  {user.bio}
-                </p>
-              )}
-
-              <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
-                <div>
-                  <span className="font-semibold">
-                    {spaceFilter ? 'Global Alignment:' : 'Alignment:'}
-                  </span>{' '}
-                  <span className={`font-bold ${
-                    user.alignment > 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : user.alignment < 0
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}>
-                    {user.alignment}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-semibold">Joined:</span>{' '}
-                  {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => handleTabChange('posts')}
-              className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'posts'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              Posts {user.postCount !== undefined ? `(${user.postCount})` : postsPagination && `(${postsPagination.totalCount})`}
-            </button>
-            <button
-              onClick={() => handleTabChange('comments')}
-              className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'comments'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              Comments {user.commentCount !== undefined ? `(${user.commentCount})` : commentsPagination && `(${commentsPagination.totalCount})`}
-            </button>
-            <button
-              onClick={() => handleTabChange('about')}
-              className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'about'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              About
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        {activeTab === 'about' ? (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-            <div className="space-y-6">
-              {user.moderatorOf && user.moderatorOf.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">
-                    Moderator of {user.moderatorOf.length} {user.moderatorOf.length === 1 ? 'space' : 'spaces'}
-                  </h3>
-                  <div className="space-y-2">
-                    {user.moderatorOf.map((space) => (
-                      <Link
-                        key={space.name}
-                        href={`/v/${space.name}`}
-                        className="flex items-center justify-between p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            v/{space.name}
-                            {space.isFounder && (
-                              <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 font-normal">
-                                (Founder)
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {space.subscriberCount.toLocaleString()} members • Moderator since {formatDistanceToNow(new Date(space.moderatorSince), { addSuffix: true })}
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Account</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Joined:</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Account Age:</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatDistanceToNow(new Date(user.createdAt))}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : loading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 animate-pulse"
-              >
-                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-              </div>
+    <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="min-w-0 space-y-4 lg:order-1">
+        <Tabs<Tab> value={tab} onChange={(t) => { setTab(t); setPage(1); }} tabs={[{ id: 'posts', label: 'Posts', count: p.postCount }, { id: 'comments', label: 'Comments', count: p.commentCount }]} />
+        {list.error ? <ErrorNotice message={list.error} onRetry={list.reload} /> : null}
+        {list.loading && !list.data ? <Skeleton className="h-32 w-full" /> : null}
+        {list.data && !items?.length ? <EmptyState title={`No ${tab} yet`} /> : null}
+        {tab === 'posts' ? <div className="space-y-3">{list.data?.posts?.map((x) => <PostCard key={x.id} post={x} />)}</div> : (
+          <div className="space-y-2">
+            {list.data?.comments?.map((c) => (
+              <Link key={c.id} href={`/v/${c.post.space.name}/${c.post.id}`} className="block rounded-lg border border-line bg-surface p-4 transition hover:border-line-strong">
+                <p className="meta">on {c.post.title} in v/{c.post.space.name} <TimeAgo date={c.createdAt} /></p>
+                <p className="mt-1.5 line-clamp-3 text-sm text-ink-2">{c.removed ? '[removed]' : c.content}</p>
+                <p className="mt-1 font-mono text-xs text-muted">{c.voteScore} points</p>
+              </Link>
             ))}
           </div>
-        ) : activeTab === 'posts' ? (
-          <>
-            {posts.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
-                <p className="text-gray-500 dark:text-gray-400 text-lg">
-                  {spaceFilter ? `No posts in v/${spaceFilter}` : 'No posts yet'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {posts.map((post) => (
-                  <PostCard key={post.id} post={post} />
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            {comments.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
-                <p className="text-gray-500 dark:text-gray-400 text-lg">
-                  {spaceFilter ? `No comments in v/${spaceFilter}` : 'No comments yet'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {comments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-                  >
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      {comment.author.username} commented on{' '}
-                      <Link
-                        href={`/v/${comment.post.space.name}/${comment.post.id}`}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        {comment.post.title}
-                      </Link>
-                      {' in '}
-                      <Link
-                        href={`/v/${comment.post.space.name}`}
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        v/{comment.post.space.name}
-                      </Link>
-                    </div>
-                    <div className="text-gray-900 dark:text-gray-100 mb-2">
-                      {comment.content}
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="font-medium">{comment.voteScore} points</span>
-                      <span>
-                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
         )}
+        {list.data && list.data.pagination.totalPages > 1 ? <div className="flex items-center justify-center gap-3"><Button size="sm" disabled={page <= 1} onClick={() => setPage((n) => n - 1)}>Newer</Button><span className="font-mono text-xs text-muted">{page} / {list.data.pagination.totalPages}</span><Button size="sm" disabled={page >= list.data.pagination.totalPages} onClick={() => setPage((n) => n + 1)}>Older</Button></div> : null}
+      </div>
 
-        {/* Pagination */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="mt-8 flex justify-center items-center gap-2">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2 text-gray-700 dark:text-gray-300">
-              Page {currentPage} of {pagination.totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(Math.min(pagination.totalPages, currentPage + 1))}
-              disabled={currentPage === pagination.totalPages}
-              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </main>
+      <aside className="space-y-4 lg:order-2">
+        <Card className="p-5">
+          <div className="flex items-center gap-3"><Avatar name={p.username} src={api.assetUrl(p.avatarUrl)} size={56} /><div className="min-w-0"><h1 className="truncate text-xl font-bold">{p.username}</h1><p className="flex items-center gap-1 text-xs text-muted"><CalendarDays size={12} /> Joined <TimeAgo date={p.createdAt} /></p></div></div>
+          {p.bio ? <p className="mt-3 whitespace-pre-wrap text-sm text-ink-2">{p.bio}</p> : null}
+          <div className="mt-4 grid grid-cols-3 gap-2"><Stat label="Karma" value={p.karma.total} /><Stat label="Posts" value={p.postCount} /><Stat label="Comments" value={p.commentCount} /></div>
+          <div className="mt-4 flex items-center justify-between rounded border border-line bg-surface-2 px-3 py-2"><span className="meta" title="Earned from how the community votes on this person's posts and comments">Alignment</span><span className={`font-mono text-sm font-bold ${p.alignment > 0 ? 'text-ok' : p.alignment < 0 ? 'text-danger' : 'text-muted'}`}>{p.alignment > 0 ? '+' : ''}{p.alignment}</span></div>
+          {own ? <ButtonLink href="/settings" variant="outline" size="sm" className="mt-4 w-full"><Settings size={14} /> Edit profile</ButtonLink> : null}
+        </Card>
+        {p.moderatorOf.length ? (
+          <Card>
+            <CardHeader title={<span className="flex items-center gap-2"><Shield size={14} /> Moderates</span>} />
+            <ul className="p-2">{p.moderatorOf.map((s) => <li key={s.name}><Link href={`/v/${s.name}`} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-2"><Avatar name={s.name} size={22} /><span className="flex-1 truncate">v/{s.name}</span>{s.isFounder ? <Badge tone="accent"><Crown size={10} /> founder</Badge> : null}</Link></li>)}</ul>
+          </Card>
+        ) : null}
+      </aside>
     </div>
   );
 }

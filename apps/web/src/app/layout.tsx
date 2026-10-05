@@ -1,44 +1,22 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { Providers } from '@/components/providers'
-
-const inter = Inter({ subsets: ['latin'] })
+import type { Metadata, Viewport } from 'next';
+import './globals.css';
+import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
-  title: 'Voidspace - Community-Driven Discussion Platform',
-  description: 'A Reddit alternative with democratic governance and transparent moderation',
-}
+  title: { default: 'Voidspace', template: '%s · Voidspace' },
+  description: 'Communities that govern themselves, with moderation and admin actions in the open.',
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export const viewport: Viewport = { themeColor: '#0a0b10' };
+
+// Runs before first paint so a visitor who chose the light theme never sees a dark flash.
+const themeScript = `try{if(localStorage.getItem('theme')==='light')document.documentElement.classList.add('light')}catch(e){}`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const theme = localStorage.getItem('theme') ||
-                                (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                  if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch (e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
-      <body className={inter.className}>
-        <Providers>
-          {children}
-        </Providers>
-      </body>
+      <head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head>
+      <body><Providers>{children}</Providers></body>
     </html>
-  )
+  );
 }

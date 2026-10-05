@@ -81,6 +81,35 @@ class ApiClient {
     return data;
   }
 
+  /** Absolute address for an API-hosted asset such as an uploaded image (stored as /uploads/...). */
+  assetUrl(path: string | null | undefined): string {
+    if (!path) return '';
+    return /^https?:\/\//i.test(path) ? path : `${this.baseUrl}${path}`;
+  }
+
+  get baseApiUrl(): string {
+    return this.baseUrl;
+  }
+
+  // Generic helpers for endpoints that do not need their own method.
+  get<T = any>(path: string) { return this.request<T>(path); }
+  post<T = any>(path: string, body?: unknown) { return this.request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }); }
+  patch<T = any>(path: string, body?: unknown) { return this.request<T>(path, { method: 'PATCH', body: body === undefined ? undefined : JSON.stringify(body) }); }
+  put<T = any>(path: string, body?: unknown) { return this.request<T>(path, { method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) }); }
+  del<T = any>(path: string) { return this.request<T>(path, { method: 'DELETE' }); }
+
+  /** Upload an image as the raw request body. Returns the stored image's path and size. */
+  async uploadImage(file: File): Promise<{ id: string; url: string; width: number; height: number; bytes: number }> {
+    const response = await fetch(`${this.baseUrl}/api/uploads`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type, ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}) },
+      body: file,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || data.error || 'Upload failed');
+    return data;
+  }
+
   // Auth endpoints
   async register(username: string, email: string, password: string) {
     const data = await this.request<{
@@ -340,6 +369,7 @@ class ApiClient {
     postType: string;
     url?: string;
     isNsfw?: boolean;
+    flairId?: string;
   }) {
     return this.request('/api/posts', {
       method: 'POST',

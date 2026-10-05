@@ -1,96 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { Bold, Code, Italic, Link2, List, Quote } from 'lucide-react';
+import { cn } from '@/lib/cn';
 import MarkdownRenderer from './MarkdownRenderer';
 
-interface MarkdownEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  maxLength?: number;
-  disabled?: boolean;
-  minHeight?: string;
-}
+/** A textarea with a small formatting toolbar and a live preview. */
+export default function MarkdownEditor({ value, onChange, placeholder, rows = 6, maxLength, id, className, invalid }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; maxLength?: number; id?: string; className?: string; invalid?: boolean;
+}) {
+  const [mode, setMode] = useState<'write' | 'preview'>('write');
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const auto = useId();
 
-export default function MarkdownEditor({
-  value,
-  onChange,
-  placeholder = 'Write your content...',
-  maxLength = 10000,
-  disabled = false,
-  minHeight = '150px',
-}: MarkdownEditorProps) {
-  const [showPreview, setShowPreview] = useState(false);
+  /** Wrap the selection (or insert at the cursor) with markdown syntax. */
+  const wrap = (before: string, after = before, fallback = 'text') => {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.selectionStart, end = el.selectionEnd;
+    const selected = value.slice(start, end) || fallback;
+    const next = value.slice(0, start) + before + selected + after + value.slice(end);
+    onChange(next);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + before.length, start + before.length + selected.length); });
+  };
+  const linePrefix = (prefix: string) => {
+    const el = ref.current;
+    if (!el) return;
+    const start = value.lastIndexOf('\n', el.selectionStart - 1) + 1;
+    onChange(value.slice(0, start) + prefix + value.slice(start));
+    requestAnimationFrame(() => el.focus());
+  };
+
+  const tools = [
+    { label: 'Bold', icon: Bold, run: () => wrap('**') },
+    { label: 'Italic', icon: Italic, run: () => wrap('*') },
+    { label: 'Link', icon: Link2, run: () => wrap('[', '](https://)', 'link text') },
+    { label: 'Quote', icon: Quote, run: () => linePrefix('> ') },
+    { label: 'Code', icon: Code, run: () => wrap('`') },
+    { label: 'List', icon: List, run: () => linePrefix('- ') },
+  ];
 
   return (
-    <div className="space-y-2">
-      {/* Tab buttons */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-        <button
-          type="button"
-          onClick={() => setShowPreview(false)}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            !showPreview
-              ? 'border-b-2 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
-        >
-          Write
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowPreview(true)}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            showPreview
-              ? 'border-b-2 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
-        >
-          Preview
-        </button>
-      </div>
-
-      {/* Editor or Preview */}
-      {showPreview ? (
-        <div
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-auto"
-          style={{ minHeight }}
-        >
-          {value ? (
-            <MarkdownRenderer content={value} />
-          ) : (
-            <p className="text-gray-500 dark:text-gray-400 italic">Nothing to preview</p>
-          )}
+    <div className={cn('overflow-hidden rounded border bg-surface-2 transition focus-within:border-accent focus-within:ring-1 focus-within:ring-accent', invalid ? 'border-danger' : 'border-line', className)}>
+      <div className="flex items-center justify-between border-b border-line px-2 py-1">
+        <div className="flex gap-0.5" role="toolbar" aria-label="Formatting">
+          {tools.map((t) => (
+            <button key={t.label} type="button" onClick={t.run} disabled={mode === 'preview'} aria-label={t.label} title={t.label}
+              className="grid h-7 w-7 place-items-center rounded text-muted transition hover:bg-surface-3 hover:text-ink disabled:opacity-40"><t.icon size={15} /></button>
+          ))}
         </div>
+        <div className="flex gap-1 text-xs font-medium">
+          {(['write', 'preview'] as const).map((m) => (
+            <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m}
+              className={cn('rounded px-2.5 py-1 capitalize transition', mode === m ? 'bg-surface-3 text-ink' : 'text-muted hover:text-ink')}>{m}</button>
+          ))}
+        </div>
+      </div>
+      {mode === 'write' ? (
+        <textarea ref={ref} id={id ?? auto} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows} maxLength={maxLength}
+          className="block w-full resize-y bg-transparent px-3 py-2.5 text-sm leading-relaxed placeholder:text-muted focus:outline-none" />
       ) : (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          maxLength={maxLength}
-          disabled={disabled}
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-          style={{ minHeight }}
-        />
+        <div className="min-h-[8rem] px-3 py-2.5">{value.trim() ? <MarkdownRenderer content={value} /> : <p className="text-sm text-muted">Nothing to preview yet.</p>}</div>
       )}
-
-      {/* Character count and markdown hint */}
-      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-        <div className="flex items-center gap-2">
-          <span>Markdown supported</span>
-          <a
-            href="https://www.markdownguide.org/basic-syntax/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            Learn more
-          </a>
-        </div>
-        <span>
-          {value.length}/{maxLength}
-        </span>
-      </div>
+      {maxLength ? <div className="border-t border-line px-3 py-1 text-right font-mono text-[0.68rem] text-muted tabular">{value.length}/{maxLength}</div> : null}
     </div>
   );
 }

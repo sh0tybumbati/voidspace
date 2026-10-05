@@ -1,207 +1,50 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useState } from 'react';
+import { Compass, Lock, Plus, Search, Users } from 'lucide-react';
 import { api } from '@/lib/api';
-import Header from '@/components/layout/Header';
-import { useAuth } from '@/lib/auth-context';
-
-interface Space {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string | null;
-  subscriberCount: number;
-  isNsfw: boolean;
-  nsfwType: string | null;
-  createdAt: string;
-}
-
-interface Pagination {
-  page: number;
-  limit: number;
-  totalCount: number;
-  totalPages: number;
-}
+import { useAsync, useDebounced } from '@/lib/hooks';
+import type { Pagination, SpaceSummary } from '@/lib/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { Input, Select } from '@/components/ui/Field';
+import { EmptyState, ErrorNotice, Skeleton } from '@/components/ui/Misc';
 
 export default function SpacesPage() {
-  const router = useRouter();
-  const { user } = useAuth();
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [pagination, setPagination] = useState<Pagination | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
   const [sortBy, setSortBy] = useState('subscribers');
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    fetchSpaces();
-  }, [search, sortBy, currentPage]);
-
-  const fetchSpaces = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getSpaces({
-        page: currentPage,
-        limit: 25,
-        search: search || undefined,
-        sortBy,
-      });
-      setSpaces(data.spaces);
-      setPagination(data.pagination);
-    } catch (error) {
-      console.error('Error fetching spaces:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setCurrentPage(1); // Reset to first page on search
-  };
-
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSortBy(e.target.value);
-    setCurrentPage(1); // Reset to first page on sort change
-  };
+  const [page, setPage] = useState(1);
+  const search = useDebounced(q.trim());
+  const { data, error, loading, reload } = useAsync(() => api.getSpaces({ page, limit: 24, search: search || undefined, sortBy }) as Promise<{ spaces: SpaceSummary[]; pagination: Pagination }>, [search, sortBy, page]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Explore Spaces
-            </h1>
-            {user && (
-              <Link
-                href="/spaces/create"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Create Space
-              </Link>
-            )}
-          </div>
-
-          {/* Search and Sort Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search spaces..."
-                value={search}
-                onChange={handleSearchChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-              />
+    <div className="mx-auto max-w-5xl space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div><h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"><Compass size={22} className="text-accent-text" /> Explore spaces</h1><p className="mt-1 text-sm text-ink-2">Every space is run by moderators its members can vote in or out.</p></div>
+        <ButtonLink href="/spaces/create" variant="primary"><Plus size={15} /> Create a space</ButtonLink>
+      </header>
+      <div className="flex flex-wrap gap-2">
+        <div className="relative min-w-[14rem] flex-1"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><Input aria-label="Search spaces" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search spaces" className="pl-9" /></div>
+        <Select aria-label="Sort" value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }} className="w-44"><option value="subscribers">Most members</option><option value="new">Newest</option><option value="name">Name</option></Select>
+      </div>
+      {error ? <ErrorNotice message={error} onRetry={reload} /> : null}
+      {loading && !data ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-28" />)}</div> : null}
+      {data && !data.spaces.length ? <EmptyState title="No spaces found" action={<ButtonLink href="/spaces/create" variant="primary">Start one</ButtonLink>}>{search ? 'Try a different search.' : 'Nobody has made a space yet.'}</EmptyState> : null}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {data?.spaces.map((s) => (
+          <Link key={s.id} href={`/v/${s.name}`} className="flex gap-3 rounded-lg border border-line bg-surface p-4 transition hover:border-line-strong">
+            <Avatar name={s.name} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1.5 truncate font-semibold">v/{s.name}{s.isPrivate ? <Lock size={12} className="text-muted" /> : null}{s.isNsfw ? <Badge tone="danger">18+</Badge> : null}</p>
+              <p className="mt-0.5 line-clamp-2 text-[0.82rem] text-ink-2">{s.description || s.displayName}</p>
+              <p className="mt-1.5 flex items-center gap-1 font-mono text-xs text-muted"><Users size={11} /> {s.subscriberCount}</p>
             </div>
-            <div className="sm:w-48">
-              <select
-                value={sortBy}
-                onChange={handleSortChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 dark:bg-gray-800"
-              >
-                <option value="subscribers">Most Subscribers</option>
-                <option value="new">Newest</option>
-                <option value="name">Alphabetical</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Spaces List */}
-        {loading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 animate-pulse"
-              >
-                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-3"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        ) : spaces.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
-              {search ? 'No spaces found matching your search.' : 'No spaces yet. Be the first to create one!'}
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-4">
-              {spaces.map((space) => (
-                <Link
-                  key={space.id}
-                  href={`/v/${space.name}`}
-                  className="block bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                          v/{space.name}
-                        </h2>
-                        {space.isNsfw && (
-                          <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-semibold rounded">
-                            NSFW
-                          </span>
-                        )}
-                      </div>
-                      {space.displayName && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                          {space.displayName}
-                        </p>
-                      )}
-                      {space.description && (
-                        <p className="text-gray-700 dark:text-gray-300 mb-3 line-clamp-2">
-                          {space.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="font-medium">
-                          {space.subscriberCount.toLocaleString()} {space.subscriberCount === 1 ? 'subscriber' : 'subscribers'}
-                        </span>
-                        <span>
-                          Created {new Date(space.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="mt-8 flex justify-center items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                <span className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                  Page {currentPage} of {pagination.totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(Math.min(pagination.totalPages, currentPage + 1))}
-                  disabled={currentPage === pagination.totalPages}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </main>
+          </Link>
+        ))}
+      </div>
+      {data && data.pagination.totalPages > 1 ? <div className="flex items-center justify-center gap-3"><Button size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button><span className="font-mono text-xs text-muted">{page} / {data.pagination.totalPages}</span><Button size="sm" disabled={page >= data.pagination.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button></div> : null}
     </div>
   );
 }
