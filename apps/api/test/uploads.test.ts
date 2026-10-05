@@ -81,4 +81,27 @@ describe('image uploads', () => {
     assert.equal(text.status, 201);
     assert.equal(text.json.post.url, null, 'text posts carry no url');
   });
+
+  it('space icon and banner: founders may set their own uploads, nobody else', async () => {
+    const space = await makeSpace(s, user, 'artspace');
+    const intruder = await makeUser(s, 'artintruder');
+    const icon = (await upload(await png(256, 256), 'image/png')).json.url;
+    const banner = (await upload(await png(1600, 400), 'image/png')).json.url;
+    const patch = (token: string, body: object) => s.call('PATCH', `/api/spaces/${space.name}`, { token, body });
+
+    assert.equal((await patch(user.token, { iconUrl: icon, bannerUrl: banner })).status, 200);
+    const got = (await s.call('GET', `/api/spaces/${space.name}`)).json.space;
+    assert.equal(got.iconUrl, icon);
+    assert.equal(got.bannerUrl, banner);
+    assert.equal((await s.call('GET', '/api/spaces?limit=50')).json.spaces.find((x: any) => x.name === space.name).iconUrl, icon, 'lists carry the icon');
+
+    assert.equal((await patch(intruder.token, { iconUrl: icon })).status, 403, 'not a moderator');
+    const theirs = (await upload(await png(321, 123), 'image/png', intruder.token)).json.url;
+    assert.equal((await patch(user.token, { iconUrl: theirs })).status, 400, 'someone else\'s upload');
+    assert.equal((await patch(user.token, { bannerUrl: 'https://tracker.example/x.png' })).status, 400, 'no hotlinking');
+    assert.equal((await patch(user.token, { bannerUrl: '/uploads/../../etc/passwd' })).status, 400);
+
+    assert.equal((await patch(user.token, { bannerUrl: null })).status, 200);
+    assert.equal((await s.call('GET', `/api/spaces/${space.name}`)).json.space.bannerUrl, null, 'null goes back to the default look');
+  });
 });

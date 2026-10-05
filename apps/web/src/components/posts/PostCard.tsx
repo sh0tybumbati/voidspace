@@ -47,7 +47,7 @@ export default function PostCard({ post, showSpace = true }: { post: Post; showS
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.78rem] text-muted">
           {showSpace ? (
-            <Link href={`/v/${post.space.name}`} className="flex items-center gap-1.5 font-semibold text-ink hover:text-accent-text"><Avatar name={post.space.name} size={18} />v/{post.space.name}</Link>
+            <Link href={`/v/${post.space.name}`} className="flex items-center gap-1.5 font-semibold text-ink hover:text-accent-text"><Avatar name={post.space.name} src={post.space.iconUrl} size={18} />v/{post.space.name}</Link>
           ) : null}
           <span>by <Link href={`/u/${post.author.username}`} className="hover:text-ink hover:underline">{post.author.username}</Link></span>
           <TimeAgo date={post.createdAt} />

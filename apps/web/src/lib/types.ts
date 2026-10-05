@@ -22,6 +22,8 @@ export interface SpaceSummary {
   subscriberCount: number;
   isNsfw: boolean;
   isPrivate?: boolean;
+  iconUrl?: string | null;
+  bannerUrl?: string | null;
   createdAt: string;
 }
 
@@ -54,7 +56,7 @@ export interface Post {
   removed?: boolean;
   removalReason?: string | null;
   author: { username: string; avatarUrl?: string | null };
-  space: { name: string; displayName: string; isNsfw?: boolean };
+  space: { name: string; displayName: string; isNsfw?: boolean; iconUrl?: string | null };
   flair?: Flair | null;
   userVote?: number | null;
   isSaved?: boolean;

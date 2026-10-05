@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Cake, Gavel, Scale, ScrollText, Shield, Users, Vote } from 'lucide-react';
+import { Cake, Gavel, Scale, ScrollText, Shield, Users, Vote, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -37,7 +37,7 @@ export default function SpaceSidebar({ space, isSubscribed, isModerator, onChang
       <Card>
         <div className="p-4">
           <div className="flex items-center gap-3">
-            <Avatar name={space.name} size={44} />
+            <Avatar name={space.name} src={space.iconUrl} size={44} />
             <div className="min-w-0"><h2 className="truncate font-semibold">{space.displayName}</h2><p className="meta">v/{space.name}</p></div>
           </div>
           {space.description ? <p className="mt-3 text-sm text-ink-2">{space.description}</p> : null}
@@ -48,6 +48,7 @@ export default function SpaceSidebar({ space, isSubscribed, isModerator, onChang
           <div className="mt-4 grid gap-2">
             <Button variant={isSubscribed ? 'secondary' : 'primary'} loading={busy} onClick={toggle}>{isSubscribed ? 'Leave space' : 'Join space'}</Button>
             {user && (isSubscribed || isModerator) ? <ButtonLink href={`/v/${space.name}/submit`} variant="outline">Create post</ButtonLink> : null}
+            {space.permissions?.all || space.permissions?.edit_space ? <ButtonLink href={`/v/${space.name}/settings`} variant="ghost" size="sm"><Settings size={14} /> Space settings</ButtonLink> : null}
           </div>
         </div>
         {space.sidebarContent ? <div className="border-t border-line p-4"><MarkdownRenderer content={space.sidebarContent} /></div> : null}

@@ -19,7 +19,7 @@ import PostCard from '@/components/posts/PostCard';
 interface Profile {
   username: string; avatarUrl?: string | null; bio?: string | null; createdAt: string; alignment: number;
   karma: { total: number; post: number; comment: number }; postCount: number; commentCount: number;
-  moderatorOf: { name: string; displayName: string; isFounder: boolean }[];
+  moderatorOf: { name: string; displayName: string; isFounder: boolean; iconUrl?: string | null }[];
 }
 interface UserComment { id: string; content: string; voteScore: number; createdAt: string; removed?: boolean; post: { id: string; title: string; space: { name: string } } }
 type Tab = 'posts' | 'comments';
@@ -78,7 +78,7 @@ export default function ProfilePage() {
         {p.moderatorOf.length ? (
           <Card>
             <CardHeader title={<span className="flex items-center gap-2"><Shield size={14} /> Moderates</span>} />
-            <ul className="p-2">{p.moderatorOf.map((s) => <li key={s.name}><Link href={`/v/${s.name}`} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-2"><Avatar name={s.name} size={22} /><span className="flex-1 truncate">v/{s.name}</span>{s.isFounder ? <Badge tone="accent"><Crown size={10} /> founder</Badge> : null}</Link></li>)}</ul>
+            <ul className="p-2">{p.moderatorOf.map((s) => <li key={s.name}><Link href={`/v/${s.name}`} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-2"><Avatar name={s.name} src={s.iconUrl} size={22} /><span className="flex-1 truncate">v/{s.name}</span>{s.isFounder ? <Badge tone="accent"><Crown size={10} /> founder</Badge> : null}</Link></li>)}</ul>
           </Card>
         ) : null}
       </aside>

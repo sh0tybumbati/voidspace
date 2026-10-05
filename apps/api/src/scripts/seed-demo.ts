@@ -77,7 +77,7 @@ async function main() {
 
   const makeSpace = async (name: string, displayName: string, description: string, founder: string, rules: string[], extra: { isNsfw?: boolean } = {}) => {
     const space = await prisma.space.create({ data: { name, displayName, description, rules, creatorId: user[founder].id, createdAt: ago(60), ...extra } });
-    await prisma.moderator.create({ data: { userId: user[founder].id, spaceId: space.id, addedBy: user[founder].id, isFounder: true, permissions: { remove_posts: true, remove_comments: true, ban_users: true, edit_rules: true, manage_flairs: true, review_appeals: true } } });
+    await prisma.moderator.create({ data: { userId: user[founder].id, spaceId: space.id, addedBy: user[founder].id, isFounder: true, permissions: { all: true } } });
     return space;
   };
   const gardening = await makeSpace('gardening', 'Gardening', 'Soil, seeds and the slow work of growing things.', 'mara', ['Be kind to beginners.', 'No sales posts or referral links.', 'Photos of your own plants only.']);

@@ -65,6 +65,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
             select: {
               name: true,
               displayName: true,
+              iconUrl: true,
               isNsfw: true,
             },
           },
@@ -284,6 +285,7 @@ router.post('/', authMiddleware, verifiedMiddleware, async (req: AuthRequest, re
           select: {
             name: true,
             displayName: true,
+            iconUrl: true,
           },
         },
         flair: true,
@@ -329,6 +331,7 @@ router.get('/:id', optionalAuthMiddleware, async (req: AuthRequest, res: Respons
           select: {
             name: true,
             displayName: true,
+            iconUrl: true,
             isNsfw: true,
           },
         },

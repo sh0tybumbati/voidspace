@@ -14,7 +14,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { Menu, MenuItem } from '@/components/ui/Menu';
 import { Logo } from '@/components/ui/Misc';
 
-interface MySpace { name: string; displayName: string; isModerator: boolean; isPrivate?: boolean }
+interface MySpace { name: string; displayName: string; iconUrl?: string | null; isModerator: boolean; isPrivate?: boolean }
 
 const RAIL = [
   { href: '/', label: 'Home', icon: Home },
@@ -64,7 +64,7 @@ function Rail({ onNavigate }: { onNavigate?: () => void }) {
           {spaces.slice(0, 12).map((s) => (
             <Link key={s.name} href={`/v/${s.name}`} onClick={onNavigate}
               className={cn('flex items-center gap-2.5 rounded px-3 py-1.5 text-sm transition', pathname.startsWith(`/v/${s.name}`) ? 'bg-surface-3 text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink')}>
-              <Avatar name={s.name} size={20} /> <span className="truncate">v/{s.name}</span>
+              <Avatar name={s.name} src={s.iconUrl} size={20} /> <span className="truncate">v/{s.name}</span>
               {s.isModerator ? <Shield size={12} className="ml-auto shrink-0 text-accent-text" aria-label="You moderate this space" /> : null}
             </Link>
           ))}

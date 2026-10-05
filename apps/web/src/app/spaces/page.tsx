@@ -35,7 +35,7 @@ export default function SpacesPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {data?.spaces.map((s) => (
           <Link key={s.id} href={`/v/${s.name}`} className="flex gap-3 rounded-lg border border-line bg-surface p-4 transition hover:border-line-strong">
-            <Avatar name={s.name} size={40} />
+            <Avatar name={s.name} src={s.iconUrl} size={40} />
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-1.5 truncate font-semibold">v/{s.name}{s.isPrivate ? <Lock size={12} className="text-muted" /> : null}{s.isNsfw ? <Badge tone="danger">18+</Badge> : null}</p>
               <p className="mt-0.5 line-clamp-2 text-[0.82rem] text-ink-2">{s.description || s.displayName}</p>

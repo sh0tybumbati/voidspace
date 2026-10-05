@@ -55,6 +55,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
             select: {
               name: true,
               displayName: true,
+              iconUrl: true,
               isNsfw: true,
             },
           },
@@ -94,6 +95,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
           id: true,
           name: true,
           displayName: true,
+          iconUrl: true,
           description: true,
           subscriberCount: true,
           isNsfw: true,

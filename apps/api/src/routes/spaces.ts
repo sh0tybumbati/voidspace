@@ -53,6 +53,7 @@ router.get('/', optionalAuthMiddleware, async (req: AuthRequest, res: Response) 
           id: true,
           name: true,
           displayName: true,
+          iconUrl: true,
           description: true,
           createdAt: true,
           subscriberCount: true,
@@ -169,7 +170,7 @@ router.get('/mine', authMiddleware, async (req: AuthRequest, res: Response) => {
       where: { deletedAt: null, OR: [{ subscriptions: { some: { userId: req.userId } } }, { moderators: { some: { userId: req.userId } } }] },
       orderBy: { name: 'asc' },
       take: 50,
-      select: { name: true, displayName: true, subscriberCount: true, isNsfw: true, isPrivate: true, moderators: { where: { userId: req.userId }, select: { id: true } } },
+      select: { name: true, displayName: true, iconUrl: true, subscriberCount: true, isNsfw: true, isPrivate: true, moderators: { where: { userId: req.userId }, select: { id: true } } },
     });
     res.json({ spaces: spaces.map(({ moderators, ...s }) => ({ ...s, isModerator: moderators.length > 0 })) });
   } catch (error) {
@@ -251,6 +252,8 @@ router.get('/:name', optionalAuthMiddleware, async (req: AuthRequest, res: Respo
  * PATCH /api/spaces/:name
  * Update space (mods only)
  */
+const uploadPath = z.string().regex(/^\/uploads\/[\w./-]+$/).nullable().optional();
+
 router.patch('/:name', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.userId) {
@@ -295,9 +298,20 @@ router.patch('/:name', authMiddleware, async (req: AuthRequest, res: Response) =
       displayName: z.string().min(3).max(100).optional(),
       description: z.string().max(5000).optional(),
       sidebarContent: z.string().max(10000).optional(),
+      iconUrl: uploadPath,
+      bannerUrl: uploadPath,
     });
 
     const validatedData = updateSpaceSchema.parse(req.body);
+
+    // Pictures must be images this moderator uploaded themselves (or null to go back to the default look).
+    for (const key of ['iconUrl', 'bannerUrl'] as const) {
+      const url = validatedData[key];
+      if (url && !(await prisma.upload.findFirst({ where: { url, userId: req.userId } }))) {
+        res.status(400).json({ error: 'Bad Request', message: 'Upload the picture first, then use it.' });
+        return;
+      }
+    }
 
     const updatedSpace = await prisma.space.update({
       where: { id: space.id },
@@ -444,6 +458,7 @@ router.get('/:name/rules', async (req, res: Response) => {
       select: {
         rules: true,
         displayName: true,
+        iconUrl: true,
       },
     });
 
@@ -589,6 +604,7 @@ router.get('/:name/posts', optionalAuthMiddleware, async (req: AuthRequest, res:
             select: {
               name: true,
               displayName: true,
+              iconUrl: true,
               isNsfw: true,
             },
           },

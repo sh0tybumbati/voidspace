@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Clock, Flame, Lock, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
-import { hueOf } from '@/components/ui/Avatar';
+import { Avatar, hueOf } from '@/components/ui/Avatar';
 import { useAuth } from '@/lib/auth-context';
 import type { Pagination, Post, Space } from '@/lib/types';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -33,7 +33,7 @@ export default function SpacePage() {
     if (authLoading) return;
     setStatus('loading');
     api.getSpace(name)
-      .then((d: { space: Space; isSubscribed: boolean; isModerator: boolean }) => { setSpace(d.space); setMeta({ isSubscribed: d.isSubscribed, isModerator: d.isModerator }); setStatus('ok'); })
+      .then((d: { space: Space; isSubscribed: boolean; isModerator: boolean; permissions?: Record<string, boolean> | null }) => { setSpace({ ...d.space, permissions: d.permissions ?? null }); setMeta({ isSubscribed: d.isSubscribed, isModerator: d.isModerator }); setStatus('ok'); })
       .catch((e: Error & { message: string }) => setStatus(/private/i.test(e.message) ? 'private' : /not found/i.test(e.message) ? 'missing' : 'error'));
   }, [name, user, authLoading]);
 
@@ -62,10 +62,17 @@ export default function SpacePage() {
 
   return (
     <div className="space-y-5">
-      <div className="relative h-28 overflow-hidden rounded-xl border border-line sm:h-36" style={{ background: `linear-gradient(120deg, hsl(${hue} 55% 22%), hsl(${(hue + 70) % 360} 60% 14%) 55%, rgb(var(--surface)))` }}>
-        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 120%, rgb(var(--accent) / .5), transparent 45%), radial-gradient(rgba(255,255,255,.08) 1px, transparent 1px)', backgroundSize: 'auto, 14px 14px' }} aria-hidden />
-        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-4">
-          <div><h1 className="text-2xl font-bold tracking-tight text-white drop-shadow sm:text-3xl">{space.displayName}</h1><p className="font-mono text-xs text-white/70">v/{space.name}{space.isNsfw ? ' · adult' : ''}{space.isPrivate ? ' · private' : ''}</p></div>
+      <div className="relative h-28 overflow-hidden rounded-xl border border-line sm:h-40" style={space.bannerUrl ? undefined : { background: `linear-gradient(120deg, hsl(${hue} 55% 22%), hsl(${(hue + 70) % 360} 60% 14%) 55%, rgb(var(--surface)))` }}>
+        {space.bannerUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={api.assetUrl(space.bannerUrl)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 20% 120%, rgb(var(--accent) / .5), transparent 45%), radial-gradient(rgba(255,255,255,.08) 1px, transparent 1px)', backgroundSize: 'auto, 14px 14px' }} aria-hidden />
+        )}
+        {space.bannerUrl ? <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" aria-hidden /> : null}
+        <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-4">
+          <Avatar name={space.name} src={space.iconUrl} size={52} className="ring-2 ring-black/40" />
+          <div className="min-w-0"><h1 className="truncate text-2xl font-bold tracking-tight text-white drop-shadow sm:text-3xl">{space.displayName}</h1><p className="font-mono text-xs text-white/70">v/{space.name}{space.isNsfw ? ' · adult' : ''}{space.isPrivate ? ' · private' : ''}</p></div>
         </div>
       </div>
 

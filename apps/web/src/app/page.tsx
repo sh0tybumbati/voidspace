@@ -46,7 +46,7 @@ function PopularSpaces() {
       <ul className="p-2">
         {spaces === null ? [0, 1, 2].map((i) => <li key={i} className="p-2"><Skeleton className="h-8 w-full" /></li>) : null}
         {spaces?.map((s) => (
-          <li key={s.name}><Link href={`/v/${s.name}`} className="flex items-center gap-3 rounded px-2 py-2 hover:bg-surface-2"><Avatar name={s.name} size={30} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">v/{s.name}</p><p className="flex items-center gap-1 text-xs text-muted"><Users size={11} /> {s.subscriberCount} members</p></div></Link></li>
+          <li key={s.name}><Link href={`/v/${s.name}`} className="flex items-center gap-3 rounded px-2 py-2 hover:bg-surface-2"><Avatar name={s.name} src={s.iconUrl} size={30} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">v/{s.name}</p><p className="flex items-center gap-1 text-xs text-muted"><Users size={11} /> {s.subscriberCount} members</p></div></Link></li>
         ))}
         {spaces && !spaces.length ? <li className="p-3 text-sm text-muted">No spaces yet. Start one!</li> : null}
       </ul>

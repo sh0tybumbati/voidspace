@@ -86,6 +86,7 @@ router.get('/:username', optionalAuthMiddleware, async (req: AuthRequest, res: R
           select: {
             name: true,
             displayName: true,
+            iconUrl: true,
             subscriberCount: true,
           },
         },
@@ -251,6 +252,7 @@ router.get('/:username/posts', optionalAuthMiddleware, async (req: AuthRequest, 
           select: {
             name: true,
             displayName: true,
+            iconUrl: true,
             isNsfw: true,
           },
         },
@@ -345,6 +347,7 @@ router.get('/:username/comments', optionalAuthMiddleware, async (req: AuthReques
               select: {
                 name: true,
                 displayName: true,
+                iconUrl: true,
               },
             },
           },
@@ -489,6 +492,7 @@ router.get('/saved/posts', authMiddleware, async (req: AuthRequest, res: Respons
               select: {
                 name: true,
                 displayName: true,
+                iconUrl: true,
                 isNsfw: true,
               },
             },
@@ -567,6 +571,7 @@ router.get('/saved/comments', authMiddleware, async (req: AuthRequest, res: Resp
                   select: {
                     name: true,
                     displayName: true,
+                    iconUrl: true,
                   },
                 },
               },

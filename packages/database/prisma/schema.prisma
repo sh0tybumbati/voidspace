@@ -79,6 +79,8 @@ model Space {
   nsfwType        String?   @map("nsfw_type") @db.VarChar(20) // 'none', 'partial', 'full'
   adEnabled       Boolean   @default(false) @map("ad_enabled")
   isPrivate       Boolean   @default(false) @map("is_private")
+  iconUrl         String?   @map("icon_url")
+  bannerUrl       String?   @map("banner_url")
   deletedAt       DateTime? @map("deleted_at")
 
   // Relations
