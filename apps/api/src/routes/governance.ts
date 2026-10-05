@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { handler, notFound } from '../lib/http';
+import { canViewSpace } from '../lib/visibility';
 import {
   COMMUNITY_VOTE_TYPES, RULES, candidateEligibility, castCommunityBallot, castElectionVote, closeDueGovernance, communityPhase,
   electionPhase, respondToNomination, startCommunityVote, startElection, voterEligibility,
@@ -13,10 +14,38 @@ const router = Router();
 /** A ballot is "for"/"against" or a boolean. */
 const ballotSchema = z.object({ vote: z.union([z.boolean(), z.enum(['for', 'against'])]) }).transform((b) => ({ vote: b.vote === true || b.vote === 'for' }));
 
-async function space(name: string) {
+/** The space, or a 404 if it is deleted or private and the viewer is not in it. */
+async function space(name: string, viewerId?: string) {
   const s = await prisma.space.findUnique({ where: { name: name.toLowerCase() } });
-  if (!s || s.deletedAt) throw notFound('Space not found.');
+  if (!s || !(await canViewSpace(s, viewerId))) throw notFound('Space not found.');
   return s;
+}
+
+type ElectionRow = Awaited<ReturnType<typeof prisma.modElection.findMany<{ include: { candidate: { select: { username: true } }; nominator: { select: { username: true } } } }>>>[number];
+type VoteRow = Awaited<ReturnType<typeof prisma.communityVote.findMany<{ include: { proposer: { select: { username: true } } } }>>>[number];
+
+/** Tallies stay hidden until voting has closed. */
+function electionView(e: ElectionRow, now: Date, me?: string, myVote?: boolean) {
+  const phase = electionPhase(e, now);
+  const closed = phase === 'closed' || e.status !== 'active';
+  return {
+    id: e.id, type: e.electionType, status: e.status, phase, candidate: e.candidate.username, nominator: e.nominator?.username ?? null,
+    justification: e.justification, accepted: Boolean(e.acceptedAt), votingStartsAt: e.electionStart, votingEndsAt: e.electionEnd,
+    requiredApproval: e.requiredApproval, requiredTurnout: RULES.election.turnout, subscribersAtStart: e.subscribersAtStart,
+    votesFor: closed ? e.votesFor : null, votesAgainst: closed ? e.votesAgainst : null, ballotsCast: e.votesFor + e.votesAgainst,
+    myVote: myVote === undefined ? null : myVote ? 'for' : 'against', isCandidate: me === e.candidateId,
+  };
+}
+
+function voteView(v: VoteRow, now: Date, myVote?: boolean) {
+  const phase = communityPhase(v, now);
+  const closed = phase === 'closed' || v.status !== 'active';
+  return {
+    id: v.id, type: v.voteType, title: v.title, proposal: v.proposal, status: v.status, phase, proposer: v.proposer?.username ?? null,
+    payload: v.payload, votingStartsAt: v.votingStartsAt, votingEndsAt: v.endsAt, requiredApproval: v.requiredApproval, requiredTurnout: v.requiredTurnout,
+    subscribersAtStart: v.subscribersAtStart, votesFor: closed ? v.votesFor : null, votesAgainst: closed ? v.votesAgainst : null, ballotsCast: v.votesFor + v.votesAgainst,
+    result: v.result, myVote: myVote === undefined ? null : myVote ? 'for' : 'against',
+  };
 }
 
 /**
@@ -25,7 +54,7 @@ async function space(name: string) {
  * gone, the rules, and (when signed in) what the viewer can do. Tallies stay hidden until voting closes.
  */
 router.get('/spaces/:name/governance', optionalAuthMiddleware, handler<AuthRequest>(async (req, res) => {
-  const sp = await space(req.params.name);
+  const sp = await space(req.params.name, req.userId);
   const now = new Date();
   await closeDueGovernance(now, sp.id);
   const me = req.userId;
@@ -52,32 +81,62 @@ router.get('/spaces/:name/governance', optionalAuthMiddleware, handler<AuthReque
     space: { name: sp.name, displayName: sp.displayName, subscriberCount: sp.subscriberCount, isPrivate: sp.isPrivate, adEnabled: sp.adEnabled },
     rules: RULES,
     moderators: mods.map((m) => ({ username: m.user.username, isFounder: m.isFounder, addedAt: m.addedAt })),
-    elections: elections.map((e) => {
-      const phase = electionPhase(e, now);
-      const closed = phase === 'closed' || e.status !== 'active';
-      return {
-        id: e.id, type: e.electionType, status: e.status, phase, candidate: e.candidate.username, nominator: e.nominator?.username ?? null,
-        justification: e.justification, accepted: Boolean(e.acceptedAt), votingStartsAt: e.electionStart, votingEndsAt: e.electionEnd,
-        requiredApproval: e.requiredApproval, requiredTurnout: RULES.election.turnout, subscribersAtStart: e.subscribersAtStart,
-        votesFor: closed ? e.votesFor : null, votesAgainst: closed ? e.votesAgainst : null, ballotsCast: e.votesFor + e.votesAgainst,
-        myVote: myE.has(e.id) ? (myE.get(e.id) ? 'for' : 'against') : null, isCandidate: me === e.candidateId,
-      };
-    }),
-    votes: votes.map((v) => {
-      const phase = communityPhase(v, now);
-      const closed = phase === 'closed' || v.status !== 'active';
-      return {
-        id: v.id, type: v.voteType, title: v.title, proposal: v.proposal, status: v.status, phase, proposer: v.proposer?.username ?? null,
-        payload: v.payload, votingStartsAt: v.votingStartsAt, votingEndsAt: v.endsAt, requiredApproval: v.requiredApproval, requiredTurnout: v.requiredTurnout,
-        subscribersAtStart: v.subscribersAtStart, votesFor: closed ? v.votesFor : null, votesAgainst: closed ? v.votesAgainst : null, ballotsCast: v.votesFor + v.votesAgainst,
-        result: v.result, myVote: myB.has(v.id) ? (myB.get(v.id) ? 'for' : 'against') : null,
-      };
-    }),
+    elections: elections.map((e) => electionView(e, now, me, myE.get(e.id))),
+    votes: votes.map((v) => voteView(v, now, myB.get(v.id))),
     moderation: {
       actionsLast30Days: actions30d,
       appeals: Object.fromEntries(appealGroups.map((g) => [g.status, g._count])),
     },
     eligibility,
+  });
+}));
+
+const historyQuery = z.object({
+  kind: z.enum(['all', 'elections', 'votes']).default('all'),
+  outcome: z.enum(['all', 'passed', 'failed']).default('all'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(15),
+});
+
+/**
+ * GET /api/spaces/:name/governance/history
+ * Every finished election and community vote in the space, newest first, with the final tallies and a
+ * summary. Open decisions are not here (their tallies are still hidden).
+ */
+router.get('/spaces/:name/governance/history', optionalAuthMiddleware, handler<AuthRequest>(async (req, res) => {
+  const q = historyQuery.parse(req.query);
+  const sp = await space(req.params.name, req.userId);
+  const now = new Date();
+  await closeDueGovernance(now, sp.id);
+
+  const [elections, votes] = await Promise.all([
+    q.kind === 'votes' ? [] : prisma.modElection.findMany({ where: { spaceId: sp.id, status: { not: 'active' } }, take: 500, include: { candidate: { select: { username: true } }, nominator: { select: { username: true } } } }),
+    q.kind === 'elections' ? [] : prisma.communityVote.findMany({ where: { spaceId: sp.id, status: { not: 'active' } }, take: 500, include: { proposer: { select: { username: true } } } }),
+  ]);
+
+  type Item = { kind: 'election' | 'vote'; at: Date; status: string; turnout: number; view: ReturnType<typeof electionView> | ReturnType<typeof voteView> };
+  const turnoutOf = (f: number, a: number, subs: number) => (f + a) / Math.max(1, subs);
+  const items: Item[] = [
+    ...elections.map((e): Item => ({ kind: 'election', at: e.electionEnd, status: e.status, turnout: turnoutOf(e.votesFor, e.votesAgainst, e.subscribersAtStart), view: electionView(e, now) })),
+    ...votes.map((v): Item => ({ kind: 'vote', at: v.endsAt, status: v.status, turnout: turnoutOf(v.votesFor, v.votesAgainst, v.subscribersAtStart), view: voteView(v, now) })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime());
+
+  const decided = items.filter((i) => i.status === 'passed' || i.status === 'failed');
+  const matching = items.filter((i) => q.outcome === 'all' || i.status === q.outcome);
+  const start = (q.page - 1) * q.limit;
+  res.json({
+    space: { name: sp.name, displayName: sp.displayName },
+    summary: {
+      total: items.length,
+      passed: decided.filter((i) => i.status === 'passed').length,
+      failed: decided.filter((i) => i.status === 'failed').length,
+      withdrawn: items.length - decided.length,
+      averageTurnout: decided.length ? decided.reduce((n, i) => n + i.turnout, 0) / decided.length : null,
+      elections: items.filter((i) => i.kind === 'election').length,
+      votes: items.filter((i) => i.kind === 'vote').length,
+    },
+    items: matching.slice(start, start + q.limit).map((i) => ({ kind: i.kind, closedAt: i.at, turnout: i.turnout, ...i.view })),
+    pagination: { page: q.page, limit: q.limit, totalCount: matching.length, totalPages: Math.max(1, Math.ceil(matching.length / q.limit)) },
   });
 }));
 

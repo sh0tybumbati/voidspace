@@ -196,7 +196,7 @@ describe('moderator elections', () => {
 describe('community votes', () => {
   let proposer: TestUser; let space: { id: string; name: string };
   const voters: TestUser[] = [];
-  const open = (id: string) => s.call('GET', `/api/spaces/${space.name}/governance`).then((r) => r.json.votes.find((v: any) => v.id === id));
+  const open = (id: string) => s.call('GET', `/api/spaces/${space.name}/governance`, { token: proposer.token }).then((r) => r.json.votes.find((v: any) => v.id === id));   // as a member: the space can turn private mid-test
   const startVoting = (id: string, ended = false) => { const d = 86_400_000; const n = Date.now(); return prisma.communityVote.update({ where: { id }, data: ended ? { votingStartsAt: new Date(n - 8 * d), endsAt: new Date(n - d) } : { votingStartsAt: new Date(n - d), endsAt: new Date(n + 6 * d) } }); };
   const propose = (u: TestUser, body: object) => s.call('POST', `/api/spaces/${space.name}/votes`, { token: u.token, body });
 
@@ -252,5 +252,68 @@ describe('community votes', () => {
     await startVoting(ads, true); await open(ads);
     assert.equal((await prisma.communityVote.findUniqueOrThrow({ where: { id: ads } })).status, 'failed');
     assert.equal((await prisma.space.findUniqueOrThrow({ where: { id: space.id } })).adEnabled, false);
+  });
+});
+
+describe('governance history', () => {
+  let space: { id: string; name: string }; let proposer: TestUser; let outsider: TestUser;
+  const voters: TestUser[] = [];
+  const day = 86_400_000;
+  const history = (query = '', token?: string, name = space.name) => s.call('GET', `/api/spaces/${name}/governance/history${query}`, { token });
+  const propose = (voteType: string, title: string) => s.call('POST', `/api/spaces/${space.name}/votes`, { token: proposer.token, body: { voteType, title, proposal: 'A proposal that is long enough to be valid.' } }).then((r) => { assert.equal(r.status, 201, JSON.stringify(r.json)); return r.json.vote.id as string; });
+  const ballots = async (id: string, yes: number, no: number) => {
+    const n = Date.now();
+    await prisma.communityVote.update({ where: { id }, data: { votingStartsAt: new Date(n - day), endsAt: new Date(n + 6 * day) } });
+    for (let i = 0; i < yes; i++) await s.call('POST', `/api/votes/${id}/ballot`, { token: voters[i].token, body: { vote: true } });
+    for (let i = 0; i < no; i++) await s.call('POST', `/api/votes/${id}/ballot`, { token: voters[yes + i].token, body: { vote: false } });
+  };
+  const finish = (id: string, daysAgo: number) => prisma.communityVote.update({ where: { id }, data: { votingStartsAt: new Date(Date.now() - (daysAgo + 7) * day), endsAt: new Date(Date.now() - daysAgo * day) } });
+
+  before(async () => {
+    const owner = await makeUser(s, 'ghowner', { ageDays: 60 });
+    space = await makeSpace(s, owner, 'ghspace');
+    proposer = await makeUser(s, 'ghproposer', { ageDays: 10 });
+    outsider = await makeUser(s, 'ghoutsider', { ageDays: 10 });
+    await s.call('POST', `/api/spaces/${space.name}/subscribe`, { token: proposer.token });
+    for (let i = 1; i <= 9; i++) { const v = await makeUser(s, `ghvoter${i}`, { ageDays: 5 }); await s.call('POST', `/api/spaces/${space.name}/subscribe`, { token: v.token }); voters.push(v); }
+  });
+
+  it('lists finished decisions newest first with tallies, leaves open ones out, and summarises', async () => {
+    const empty = await history();
+    assert.equal(empty.status, 200);
+    assert.equal(empty.json.summary.total, 0);
+    assert.equal(empty.json.summary.averageTurnout, null);
+
+    const a = await propose('enable_ads', 'Turn ads on');
+    await ballots(a, 4, 0); await finish(a, 5);                                           // passes
+    const b = await propose('set_private', 'Go private');
+    await ballots(b, 1, 3); await finish(b, 2);                                           // fails
+    const open = await propose('delete_space', 'Still open');                             // discussion, not finished
+    const res = await history();
+    assert.deepEqual(res.json.items.map((i: any) => i.title), ['Go private', 'Turn ads on'], 'newest first, open one excluded');
+    assert.equal(res.json.items[1].votesFor, 4);
+    assert.equal(res.json.items[0].votesAgainst, 3);
+    assert.equal(res.json.items[0].status, 'failed');
+    assert.ok(res.json.items[0].subscribersAtStart >= 10);
+    assert.ok(Math.abs(res.json.items[0].turnout - 4 / res.json.items[0].subscribersAtStart) < 0.001, 'turnout is ballots over subscribers when it began');
+    assert.deepEqual({ ...res.json.summary, averageTurnout: undefined }, { total: 2, passed: 1, failed: 1, withdrawn: 0, averageTurnout: undefined, elections: 0, votes: 2 });
+    assert.ok(!JSON.stringify(res.json).includes(open), 'an open vote never appears');
+
+    assert.deepEqual((await history('?outcome=passed')).json.items.map((i: any) => i.title), ['Turn ads on']);
+    assert.equal((await history('?kind=elections')).json.items.length, 0);
+    const page2 = await history('?limit=1&page=2');
+    assert.deepEqual(page2.json.items.map((i: any) => i.title), ['Turn ads on']);
+    assert.equal(page2.json.pagination.totalPages, 2);
+    assert.equal((await history('?limit=500')).status, 400, 'limit is bounded');
+  });
+
+  it('a private space keeps its governance to its members', async () => {
+    await prisma.space.update({ where: { id: space.id }, data: { isPrivate: true } });
+    for (const path of ['governance', 'governance/history']) {
+      assert.equal((await s.call('GET', `/api/spaces/${space.name}/${path}`)).status, 404, `${path}: anonymous`);
+      assert.equal((await s.call('GET', `/api/spaces/${space.name}/${path}`, { token: outsider.token })).status, 404, `${path}: outsider`);
+      assert.equal((await s.call('GET', `/api/spaces/${space.name}/${path}`, { token: voters[0].token })).status, 200, `${path}: member`);
+    }
+    assert.equal((await history('', undefined, 'no_such_space')).status, 404);
   });
 });

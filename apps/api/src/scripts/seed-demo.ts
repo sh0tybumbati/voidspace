@@ -166,6 +166,16 @@ async function main() {
   await prisma.communityVote.update({ where: { id: done.id }, data: { endsAt: ago(1) } });
   await finalizeCommunityVote(done.id);
 
+  // more history: a failed ads vote in gardening, and an election that made tamsin a moderator of localnews
+  const ads = await startCommunityVote({ spaceName: 'gardening', proposerId: user.pell.id, voteType: 'enable_ads', title: 'Run ads to cover hosting', proposal: 'A small banner on the sidebar would cover the cost of the server we are asking Voidspace to host.' });
+  await prisma.communityVote.update({ where: { id: ads.id }, data: { votingStartsAt: ago(30), endsAt: new Date(Date.now() + DAY) } });
+  for (const [n, v] of [['pell', true], ['okoro', true], ['quill', true], ['mara', false], ['wren', false], ['reeve', false], ['sable', false], ['tamsin', false], ['umber', false]] as const) await castCommunityBallot(ads.id, user[n].id, v);
+  await prisma.communityVote.update({ where: { id: ads.id }, data: { endsAt: ago(22) } });
+  await finalizeCommunityVote(ads.id);
+  const elected = await prisma.modElection.create({ data: { spaceId: localnews.id, candidateId: user.tamsin.id, electionType: 'add_mod', nominatorId: user.tamsin.id, electionStart: ago(20), electionEnd: ago(13), subscribersAtStart: 9, requiredApproval: 0.6, acceptedAt: ago(24), votesFor: 6, votesAgainst: 1, status: 'passed', closedAt: ago(13), nominationDate: ago(24) } });
+  await prisma.moderator.create({ data: { userId: user.tamsin.id, spaceId: localnews.id, addedBy: user.joss.id, permissions: { remove_posts: true, remove_comments: true, ban_users: true, edit_rules: true, manage_flairs: true }, addedAt: ago(13) } });
+  void elected;
+
   // ---- Admin / transparency
   await adminRemoveContent(user.root.id, 'post', (await prisma.post.create({ data: { spaceId: meta.id, authorId: user.zeph.id, title: 'Free movie downloads here', content: 'Link to pirated films.', postType: 'text', createdAt: ago(5) } })).id, 'Links to pirated films, reported twice. Removed and the account warned.');
   await logAdminAction(user.root.id, 'dismiss_report', user.vex.id, 'user', 'Reviewed the report about this account. It was a disagreement, not a violation.');

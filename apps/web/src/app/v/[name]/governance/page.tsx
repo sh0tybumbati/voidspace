@@ -87,7 +87,7 @@ export default function GovernancePage() {
 
       {closedElections.length || closedVotes.length ? (
         <section aria-labelledby="past">
-          <h2 id="past" className="mb-3 text-lg font-semibold">Past decisions</h2>
+          <div className="mb-3 flex items-center justify-between"><h2 id="past" className="text-lg font-semibold">Past decisions</h2><Link href={`/v/${name}/governance/history`} className="link text-sm font-semibold">Full history</Link></div>
           <div className="grid items-start gap-4 lg:grid-cols-2">
             {closedElections.map((e) => <ElectionCard key={e.id} e={e} space={name} eligibleToVote={null} signedIn={Boolean(user)} onChange={reload} />)}
             {closedVotes.map((v) => <CommunityVoteCard key={v.id} v={v} space={name} eligibleToVote={null} signedIn={Boolean(user)} onChange={reload} />)}
