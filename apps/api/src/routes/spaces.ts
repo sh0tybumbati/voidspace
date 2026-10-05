@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
+import { hasModPermission } from '../utils/permissions';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -254,7 +255,7 @@ router.patch('/:name', authMiddleware, async (req: AuthRequest, res: Response) =
     }
 
     // Check permission
-    const hasPermission = moderator.permissions.all || moderator.permissions.edit_space;
+    const hasPermission = hasModPermission(moderator.permissions, 'edit_space');
     if (!hasPermission) {
       res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
       return;
@@ -463,7 +464,7 @@ router.patch('/:name/rules', authMiddleware, async (req: AuthRequest, res: Respo
     }
 
     // Check permission
-    const hasPermission = moderator.permissions.all || moderator.permissions.edit_rules;
+    const hasPermission = hasModPermission(moderator.permissions, 'edit_rules');
     if (!hasPermission) {
       res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
       return;
@@ -593,7 +594,7 @@ router.get('/:name/posts', optionalAuthMiddleware, async (req: AuthRequest, res:
       createdAt: post.createdAt,
       voteScore: post.voteScore,
       commentCount: post._count.comments,
-      isEdited: post.isEdited,
+      isEdited: post.editedAt != null,
       author: post.author,
       space: post.space,
       userVote: userVotes[post.id] || null,
@@ -795,7 +796,7 @@ router.post('/:name/flairs', authMiddleware, async (req: AuthRequest, res: Respo
     }
 
     // Check permission
-    const hasPermission = moderator.permissions.all || moderator.permissions.manage_flairs;
+    const hasPermission = hasModPermission(moderator.permissions, 'manage_flairs');
     if (!hasPermission) {
       res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
       return;
@@ -871,7 +872,7 @@ router.patch('/:name/flairs/:flairId', authMiddleware, async (req: AuthRequest, 
     }
 
     // Check permission
-    const hasPermission = moderator.permissions.all || moderator.permissions.manage_flairs;
+    const hasPermission = hasModPermission(moderator.permissions, 'manage_flairs');
     if (!hasPermission) {
       res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
       return;
@@ -953,7 +954,7 @@ router.delete('/:name/flairs/:flairId', authMiddleware, async (req: AuthRequest,
     }
 
     // Check permission
-    const hasPermission = moderator.permissions.all || moderator.permissions.manage_flairs;
+    const hasPermission = hasModPermission(moderator.permissions, 'manage_flairs');
     if (!hasPermission) {
       res.status(403).json({ error: 'Forbidden', message: 'Insufficient permissions' });
       return;

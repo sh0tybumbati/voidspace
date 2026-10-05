@@ -31,13 +31,15 @@ class ApiClient {
     return this.token;
   }
 
-  private async request<T>(
+  // Endpoints without an explicit response type return `any`, like the rest of this client
+  // (`user: any`). Defining a response type per endpoint is the stricter long-term fix.
+  private async request<T = any>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string> | undefined),
     };
 
     if (this.token) {

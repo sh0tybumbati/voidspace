@@ -90,7 +90,7 @@ router.post('/register', async (req, res: Response) => {
     const token = jwt.sign(
       { userId: user.id, username: user.username },
       jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRY || '7d' }
+      { expiresIn: (process.env.JWT_EXPIRY || '7d') as jwt.SignOptions['expiresIn'] }
     );
 
     res.status(201).json({
@@ -162,7 +162,7 @@ router.post('/login', async (req, res: Response) => {
     const token = jwt.sign(
       { userId: user.id, username: user.username, isAdmin: user.isAdmin },
       jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRY || '7d' }
+      { expiresIn: (process.env.JWT_EXPIRY || '7d') as jwt.SignOptions['expiresIn'] }
     );
 
     // Remove password hash from response

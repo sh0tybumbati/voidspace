@@ -249,7 +249,7 @@ export default function CreateSpacePage() {
             <li>• Choose a descriptive name that represents your community</li>
             <li>• Space names cannot be changed after creation</li>
             <li>• You will automatically become the founder moderator</li>
-            <li>• Follow Voidspace's content policy and legal requirements</li>
+            <li>• Follow Voidspace&apos;s content policy and legal requirements</li>
             <li>• NSFW spaces must be properly marked for age-gating</li>
           </ul>
         </div>

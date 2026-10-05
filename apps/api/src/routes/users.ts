@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
 import { getSpaceAlignmentBreakdown } from '../services/alignment';
 
@@ -154,10 +154,14 @@ router.patch('/:username', authMiddleware, async (req: AuthRequest, res: Respons
 
     const validatedData = updateProfileSchema.parse(req.body);
 
-    // Update user
+    // Update user. preferences is a JSON column, so null must be Prisma.JsonNull.
+    const { preferences, ...profileFields } = validatedData;
     const updatedUser = await prisma.user.update({
       where: { id: req.userId },
-      data: validatedData,
+      data: {
+        ...profileFields,
+        ...(preferences !== undefined && { preferences: preferences === null ? Prisma.JsonNull : (preferences as Prisma.InputJsonObject) }),
+      },
       select: {
         id: true,
         username: true,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -10,7 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 type FilterType = 'all' | 'posts' | 'spaces' | 'users';
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get('q') || '';
 
@@ -260,5 +260,14 @@ export default function SearchPage() {
         )}
       </main>
     </div>
+  );
+}
+
+// useSearchParams() needs a Suspense boundary so Next can prerender the page shell.
+export default function SearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

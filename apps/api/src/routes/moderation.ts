@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
+import { hasModPermission } from '../utils/permissions';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -30,7 +31,7 @@ async function checkModeratorPermission(
   // Check if moderator has the required permission
   if (requiredPermission) {
     const hasPermission =
-      moderator.permissions.all || moderator.permissions[requiredPermission];
+      hasModPermission(moderator.permissions, requiredPermission);
     return { isMod: hasPermission, moderator };
   }
 

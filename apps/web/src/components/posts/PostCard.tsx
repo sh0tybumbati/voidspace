@@ -13,9 +13,9 @@ import MarkdownRenderer from '../ui/MarkdownRenderer';
 interface Post {
   id: string;
   title: string;
-  content?: string;
+  content?: string | null;
   postType: string;
-  url?: string;
+  url?: string | null;
   createdAt: string;
   voteScore: number;
   commentCount: number;
@@ -24,7 +24,7 @@ interface Post {
   removalReason?: string;
   author: {
     username: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
   };
   space: {
     name: string;

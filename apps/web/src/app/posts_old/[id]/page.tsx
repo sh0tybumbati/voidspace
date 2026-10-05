@@ -227,7 +227,7 @@ export default function PostDetailPage() {
             {/* Comments section */}
             <div>
               <h2 className="text-lg font-bold text-gray-900 mb-4">Comments</h2>
-              <CommentTree postId={post.id} />
+              <CommentTree postId={post.id} spaceName={post.space.name} />
             </div>
           </div>
 

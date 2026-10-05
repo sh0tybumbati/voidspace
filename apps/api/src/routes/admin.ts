@@ -110,7 +110,7 @@ router.get('/users/:userId', adminMiddleware, async (req: AuthRequest, res: Resp
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        moderatorOf: {
+        moderatorRoles: {
           include: {
             space: {
               select: {
@@ -183,7 +183,7 @@ router.get('/users/:userId', adminMiddleware, async (req: AuthRequest, res: Resp
     });
 
     res.json({
-      user,
+      user: { ...user, moderatorOf: user.moderatorRoles },
       bans,
       recentPosts,
       recentComments,

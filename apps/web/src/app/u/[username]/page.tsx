@@ -45,7 +45,7 @@ interface Post {
   content: string | null;
   url: string | null;
   postType: string;
-  score: number;
+  voteScore: number;
   commentCount: number;
   createdAt: string;
   isNsfw: boolean;
@@ -64,7 +64,7 @@ interface Post {
 interface Comment {
   id: string;
   content: string;
-  score: number;
+  voteScore: number;
   createdAt: string;
   post: {
     id: string;
@@ -496,7 +496,7 @@ export default function UserProfilePage() {
                       {comment.content}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="font-medium">{comment.score} points</span>
+                      <span className="font-medium">{comment.voteScore} points</span>
                       <span>
                         {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                       </span>

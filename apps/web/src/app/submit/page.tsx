@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import PostForm from '@/components/posts/PostForm';
 import Header from '@/components/layout/Header';
 
-export default function SubmitPage() {
+function SubmitPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
@@ -211,5 +211,14 @@ export default function SubmitPage() {
         )}
       </main>
     </div>
+  );
+}
+
+// useSearchParams() needs a Suspense boundary so Next can prerender the page shell.
+export default function SubmitPage() {
+  return (
+    <Suspense fallback={null}>
+      <SubmitPageContent />
+    </Suspense>
   );
 }
