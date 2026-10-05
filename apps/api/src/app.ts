@@ -9,6 +9,9 @@ import commentRoutes from './routes/comments';
 import moderationRoutes from './routes/moderation';
 import searchRoutes from './routes/search';
 import adminRoutes from './routes/admin';
+import reportRoutes from './routes/reports';
+import appealRoutes from './routes/appeals';
+import modQueueRoutes from './routes/modqueue';
 import { errorMiddleware } from './lib/http';
 
 // Origins that may call the API from a browser.
@@ -61,6 +64,9 @@ export function createApp(): express.Express {
   app.use('/api/posts', postRoutes);
   app.use('/api/comments', commentRoutes);
   app.use('/api/mod', moderationRoutes);
+  app.use('/api/mod', modQueueRoutes);
+  app.use('/api/reports', reportRoutes);
+  app.use('/api/appeals', appealRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/admin', adminRoutes);
 
