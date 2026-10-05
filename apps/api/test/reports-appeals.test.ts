@@ -170,4 +170,19 @@ describe('appeals', () => {
     assert.equal((await s.call('POST', '/api/appeals', { token: author.token, body: { modActionId: old.id, reason: 'Appealing very late, but anyway.' } })).status, 400);
     assert.equal((await s.call('GET', '/api/appeals/mine', { token: banned.token })).json.appeals.length, 1);
   });
+
+  it('the author can look up the decision behind removed content, and only the author', async () => {
+    const founder = await makeUser(s, 'lookfounder'); const author = await makeUser(s, 'lookauthor'); const other = await makeUser(s, 'lookother');
+    const space = await makeSpace(s, founder, 'lookspace'); const post = await makePost(s, author, space.id, 'Looked up');
+    await s.call('POST', '/api/mod/remove-post', { token: founder.token, body: { postId: post.id, reason: 'Removed so the lookup has something.' } });
+    const found = await s.call('GET', `/api/appeals/target/post/${post.id}`, { token: author.token });
+    assert.equal(found.status, 200);
+    assert.equal(found.json.canAppeal, true);
+    assert.equal(found.json.action.space, 'lookspace');
+    assert.equal((await s.call('GET', `/api/appeals/target/post/${post.id}`, { token: other.token })).status, 403);
+    const direct = await s.call('GET', `/api/appeals/action/${found.json.action.id}`, { token: author.token });
+    assert.equal(direct.json.windowDays, 30);
+    await s.call('POST', '/api/appeals', { token: author.token, body: { modActionId: found.json.action.id, reason: 'Please look again at this removal.' } });
+    assert.equal((await s.call('GET', `/api/appeals/target/post/${post.id}`, { token: author.token })).json.canAppeal, false, 'already appealed');
+  });
 });

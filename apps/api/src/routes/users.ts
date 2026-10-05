@@ -147,12 +147,18 @@ router.patch('/:username', authMiddleware, async (req: AuthRequest, res: Respons
 
     // Validation schema for profile updates
     const updateProfileSchema = z.object({
-      avatarUrl: z.string().url().optional().nullable(),
+      avatarUrl: z.union([z.string().url(), z.string().regex(/^\/uploads\/[\w./-]+$/)]).optional().nullable(),
       bio: z.string().max(500, 'Bio must be less than 500 characters').optional().nullable(),
       preferences: z.record(z.any()).optional().nullable(),
     });
 
     const validatedData = updateProfileSchema.parse(req.body);
+
+    // A stored path must be an image this account uploaded.
+    if (validatedData.avatarUrl?.startsWith('/uploads/')) {
+      const owned = await prisma.upload.findFirst({ where: { url: validatedData.avatarUrl, userId: req.userId } });
+      if (!owned) { res.status(400).json({ error: 'Bad Request', message: 'Upload the picture first, then use it.' }); return; }
+    }
 
     // Update user. preferences is a JSON column, so null must be Prisma.JsonNull.
     const { preferences, ...profileFields } = validatedData;

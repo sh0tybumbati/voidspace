@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest, verifiedMiddleware } from '../middleware/auth';
 import { updateUserAlignmentOnVote } from '../jobs/alignmentUpdate';
 import { prisma } from '../db';
+import { canViewSpaceById } from '../lib/visibility';
 import { publish } from '../lib/bus';
 import { notify } from '../services/notify';
 
@@ -165,11 +166,15 @@ router.get('/posts/:postId/comments', optionalAuthMiddleware, async (req: AuthRe
         break;
     }
 
-    // Get all comments for the post
+    if (!(await canViewSpaceById(post.spaceId, req.userId))) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+
+    // Removed comments stay in the thread, without their text, so moderation is visible and replies keep their place.
     const comments = await prisma.comment.findMany({
       where: {
         postId,
-        removed: false,
       },
       orderBy,
       include: {
@@ -200,12 +205,14 @@ router.get('/posts/:postId/comments', optionalAuthMiddleware, async (req: AuthRe
 
     const commentsWithVotes = comments.map((comment) => ({
       ...comment,
+      content: comment.removed ? '' : comment.content,
+      imageUrl: comment.removed ? null : comment.imageUrl,
       userVote: userVotes[comment.id] || null,
     }));
 
     res.json({
       comments: commentsWithVotes,
-      totalCount: comments.length,
+      totalCount: comments.filter((c) => !c.removed).length,
     });
   } catch (error) {
     console.error('Get comments error:', error);

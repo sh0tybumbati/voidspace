@@ -160,6 +160,25 @@ router.post('/', authMiddleware, verifiedMiddleware, async (req: AuthRequest, re
 });
 
 /**
+ * GET /api/spaces/mine
+ * The spaces you belong to or moderate, for the sidebar.
+ */
+router.get('/mine', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const spaces = await prisma.space.findMany({
+      where: { deletedAt: null, OR: [{ subscriptions: { some: { userId: req.userId } } }, { moderators: { some: { userId: req.userId } } }] },
+      orderBy: { name: 'asc' },
+      take: 50,
+      select: { name: true, displayName: true, subscriberCount: true, isNsfw: true, isPrivate: true, moderators: { where: { userId: req.userId }, select: { id: true } } },
+    });
+    res.json({ spaces: spaces.map(({ moderators, ...s }) => ({ ...s, isModerator: moderators.length > 0 })) });
+  } catch (error) {
+    console.error('Get my spaces error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/spaces/:name
  * Get space details
  */
@@ -214,9 +233,13 @@ router.get('/:name', optionalAuthMiddleware, async (req: AuthRequest, res: Respo
       isSubscribed = !!subscription;
     }
 
+    const mods = await prisma.moderator.findMany({ where: { spaceId: space.id }, orderBy: { addedAt: 'asc' }, include: { user: { select: { username: true } } } });
+    const mine = req.userId ? mods.find((m) => m.userId === req.userId) : undefined;
     res.json({
-      space,
+      space: { ...space, moderators: mods.map((m) => ({ username: m.user.username, isFounder: m.isFounder })) },
       isSubscribed,
+      isModerator: Boolean(mine),
+      permissions: mine?.permissions ?? null,
     });
   } catch (error) {
     console.error('Get space error:', error);

@@ -231,6 +231,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
         preferences: true,
         isAdmin: true,
         isOver18: true,
+        emailVerifiedAt: true,
       },
     });
 

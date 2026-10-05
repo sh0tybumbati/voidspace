@@ -50,11 +50,37 @@ router.post('/', authMiddleware, handler<AuthRequest>(async (req, res) => {
   });
 
   if (escalated) {
-    await notifyAdmins({ type: 'appeal_escalated', title: `Appeal needs an admin (v/${action.space.name})`, body: 'The space has no other moderator to review it.', link: '/admin/appeals' });
+    await notifyAdmins({ type: 'appeal_escalated', title: `Appeal needs an admin (v/${action.space.name})`, body: 'The space has no other moderator to review it.', link: '/admin?tab=appeals' });
   } else {
     await notifyModerators(action.spaceId, { type: 'appeal_filed', title: `New appeal in v/${action.space.name}`, link: `/v/${action.space.name}/mod/appeals` }, action.modId);
   }
   res.status(201).json({ message: 'Your appeal was sent.', appeal: { id: appeal.id, status: appeal.status } });
+}));
+
+/**
+ * GET /api/appeals/target/:type/:id
+ * For the author of removed content: the moderation action behind it, and whether it can still be appealed.
+ */
+router.get('/target/:type/:id', authMiddleware, handler<AuthRequest>(async (req, res) => {
+  const type = req.params.type === 'comment' ? 'comment' : req.params.type === 'post' ? 'post' : null;
+  if (!type) throw badRequest('Type must be post or comment.');
+  const actionType = `remove_${type}`;
+  const action = await prisma.modAction.findFirst({ where: { actionType, targetId: req.params.id }, orderBy: { createdAt: 'desc' }, include: { space: { select: { name: true } } } });
+  if (!action) throw notFound('No moderation action found.');
+  if ((await affectedUserId(action)) !== req.userId) throw forbidden('Only the author can see this.');
+  const appeal = await prisma.appeal.findFirst({ where: { modActionId: action.id }, select: { id: true, status: true, reviewerNotes: true } });
+  const withinWindow = Date.now() - action.createdAt.getTime() <= APPEAL_WINDOW_DAYS * 86_400_000;
+  res.json({ action: { id: action.id, reason: action.reason, createdAt: action.createdAt, space: action.space.name, reversed: Boolean(action.reversedAt) }, appeal, canAppeal: !appeal && withinWindow && !action.reversedAt });
+}));
+
+/** GET /api/appeals/action/:id: the action an appeal form is about (only the affected user) */
+router.get('/action/:id', authMiddleware, handler<AuthRequest>(async (req, res) => {
+  const action = await prisma.modAction.findUnique({ where: { id: req.params.id }, include: { space: { select: { name: true } } } });
+  if (!action || !APPEALABLE.includes(action.actionType)) throw notFound('Moderation action not found.');
+  if ((await affectedUserId(action)) !== req.userId) throw forbidden('Only the affected user can appeal this.');
+  const appeal = await prisma.appeal.findFirst({ where: { modActionId: action.id }, select: { id: true, status: true } });
+  const withinWindow = Date.now() - action.createdAt.getTime() <= APPEAL_WINDOW_DAYS * 86_400_000;
+  res.json({ action: { id: action.id, type: action.actionType, reason: action.reason, createdAt: action.createdAt, space: action.space.name, reversed: Boolean(action.reversedAt) }, appeal, canAppeal: !appeal && withinWindow && !action.reversedAt, windowDays: APPEAL_WINDOW_DAYS });
 }));
 
 /** GET /api/appeals/mine */
@@ -85,7 +111,7 @@ router.post('/:id/review', authMiddleware, handler<AuthRequest>(async (req, res)
   const now = new Date();
   if (decision === 'escalate') {
     await prisma.appeal.update({ where: { id: appeal.id }, data: { status: 'escalated', escalatedAt: now, reviewedBy: req.userId!, reviewerNotes: notes ?? null } });
-    await notifyAdmins({ type: 'appeal_escalated', title: `Appeal escalated (v/${appeal.space.name})`, body: notes, link: '/admin/appeals' });
+    await notifyAdmins({ type: 'appeal_escalated', title: `Appeal escalated (v/${appeal.space.name})`, body: notes, link: '/admin?tab=appeals' });
     await notify(appeal.userId, { type: 'appeal_update', title: 'Your appeal was sent to the site admins', body: notes });
   } else {
     if (decision === 'approve') await reverse(appeal.modAction, req.userId!, notes || 'Appeal approved', { skipAuth: true });
