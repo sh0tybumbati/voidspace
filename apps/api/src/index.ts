@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createApp } from './app';
 import { startAlignmentUpdateJob } from './jobs/alignmentUpdate';
 import { startHotScoreUpdateJob } from './jobs/hotScoreUpdate';
+import { startGovernanceCloseJob } from './jobs/governanceClose';
 
 const PORT = process.env.PORT || 3001;
 const app = createApp();
@@ -13,6 +14,7 @@ app.listen(PORT, () => {
   // Background jobs only run in the real server, never in tests.
   startAlignmentUpdateJob();
   startHotScoreUpdateJob();
+  startGovernanceCloseJob();
 });
 
 export default app;

@@ -12,6 +12,7 @@ import adminRoutes from './routes/admin';
 import reportRoutes from './routes/reports';
 import appealRoutes from './routes/appeals';
 import modQueueRoutes from './routes/modqueue';
+import governanceRoutes from './routes/governance';
 import { errorMiddleware } from './lib/http';
 
 // Origins that may call the API from a browser.
@@ -67,6 +68,7 @@ export function createApp(): express.Express {
   app.use('/api/mod', modQueueRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/appeals', appealRoutes);
+  app.use('/api', governanceRoutes);
   app.use('/api/search', searchRoutes);
   app.use('/api/admin', adminRoutes);
 
