@@ -2,7 +2,28 @@
  * API client for Voidspace backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+/**
+ * The build bakes in a localhost API address. From another address (127.0.0.1, this machine's
+ * network address, a hostname) "localhost" would point at the visitor's own device, so keep the
+ * API port but use the host the page was actually opened from.
+ */
+function resolveApiUrl(): string {
+  if (typeof window === 'undefined') return CONFIGURED_API_URL;
+  try {
+    const url = new URL(CONFIGURED_API_URL);
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      url.hostname = window.location.hostname;
+      return url.origin;
+    }
+  } catch {
+    // fall through to the configured value
+  }
+  return CONFIGURED_API_URL;
+}
+
+const API_URL = resolveApiUrl();
 
 class ApiClient {
   private baseUrl: string;

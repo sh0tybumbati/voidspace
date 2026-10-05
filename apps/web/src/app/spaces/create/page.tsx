@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -51,11 +51,12 @@ export default function CreateSpacePage() {
 
   const isNsfw = watch('isNsfw');
 
-  // Redirect if not logged in
-  if (!user) {
-    router.push('/login?redirect=/spaces/create');
-    return null;
-  }
+  // Redirect if not logged in. Navigating while rendering is not allowed, so do it in an effect.
+  useEffect(() => {
+    if (!user) router.push('/login?redirect=/spaces/create');
+  }, [user, router]);
+
+  if (!user) return null;
 
   const onSubmit = async (data: CreateSpaceFormData) => {
     try {

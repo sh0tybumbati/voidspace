@@ -10,8 +10,27 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
+// FRONTEND_URL may list several origins, comma separated. Set ALLOW_LAN_ORIGINS=1 to also accept
+// the page being opened by IP address or hostname on this machine's own network (for example
+// from a phone), which is how a home or office install is usually used.
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map((o) => o.trim()).filter(Boolean);
+const frontendPorts = new Set(allowedOrigins.map((o) => { try { return new URL(o).port; } catch { return ''; } }));
+const PRIVATE_HOST = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
+
+function originAllowed(origin: string | undefined): boolean {
+  if (!origin) return true; // same-origin or non-browser requests
+  if (allowedOrigins.includes(origin)) return true;
+  if (process.env.ALLOW_LAN_ORIGINS !== '1') return false;
+  try {
+    const u = new URL(origin);
+    return PRIVATE_HOST.test(u.hostname) && frontendPorts.has(u.port);
+  } catch {
+    return false;
+  }
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => callback(null, originAllowed(origin)),
   credentials: true,
 }));
 app.use(express.json());
