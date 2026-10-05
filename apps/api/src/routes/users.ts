@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
 import { getSpaceAlignmentBreakdown } from '../services/alignment';
+import { prisma } from '../db';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * GET /api/users/:username

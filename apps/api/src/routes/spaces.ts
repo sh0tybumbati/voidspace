@@ -1,11 +1,10 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
 import { hasModPermission } from '../utils/permissions';
 import { authMiddleware, optionalAuthMiddleware, AuthRequest } from '../middleware/auth';
+import { prisma } from '../db';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 /**
  * GET /api/spaces
